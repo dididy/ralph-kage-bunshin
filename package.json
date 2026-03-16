@@ -1,0 +1,43 @@
+{
+  "name": "ralph-kage-bunshin",
+  "version": "0.1.0",
+  "description": "AI coding harness — you design, agents forge through the night",
+  "author": "Yongjae Lee",
+  "license": "Apache-2.0",
+  "keywords": ["cli", "ai", "claude", "tmux", "coding", "automation", "agents"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dididy/ralph-kage-bunshin"
+  },
+  "type": "module",
+  "bin": { "ralph": "./dist/index.js" },
+  "files": [
+    "dist/",
+    "skills/",
+    "assets/",
+    "package.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "prepublishOnly": "pnpm run typecheck && pnpm test && pnpm run build"
+  },
+  "dependencies": {
+    "commander": "12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "tsup": "8.5.1",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  },
+  "packageManager": "pnpm@10.6.5"
+}
