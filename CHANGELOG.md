@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2026-03-18
+
+### Fixed
+- `install-skills` now installs each skill as `<name>/SKILL.md` directory structure so Claude Code discovers them correctly via `/` command
+
 ## [0.1.2] - 2026-03-18
 
 ### Fixed

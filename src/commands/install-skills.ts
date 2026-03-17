@@ -35,17 +35,20 @@ export async function installSkills(opts: { force: boolean }): Promise<void> {
   fs.mkdirSync(SKILLS_DEST, { recursive: true })
 
   for (const file of files) {
-    const dest = path.join(SKILLS_DEST, file)
+    const skillName = file.replace(/\.md$/, '')
+    const skillDir = path.join(SKILLS_DEST, skillName)
+    const dest = path.join(skillDir, 'SKILL.md')
     const exists = fs.existsSync(dest)
 
     if (exists && !opts.force) {
-      const overwrite = await confirm(`[WARN] ${file} already exists. Overwrite? (y/N) `)
+      const overwrite = await confirm(`[WARN] ${skillName} already exists. Overwrite? (y/N) `)
       if (!overwrite) {
-        console.log(`  skipped: ${file}`)
+        console.log(`  skipped: ${skillName}`)
         continue
       }
     }
 
+    fs.mkdirSync(skillDir, { recursive: true })
     fs.copyFileSync(path.join(skillsSrc, file), dest)
     console.log(`  [OK] ${file} → ${dest}`)
   }
