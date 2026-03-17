@@ -1,3 +1,8 @@
+---
+name: ralph-kage-bunshin-start
+description: Use when setting up a new ralph-kage-bunshin project — runs a dimension-based interview to generate SPEC.md, tasks.json, and CLAUDE.md
+---
+
 # /ralph-kage-bunshin-start — Ralph Project Setup Skill
 
 You are setting up a new Ralph project. Run a structured, dimension-based interview to fully understand what the user wants to build — then synthesize a tight spec and granular task list.

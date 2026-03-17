@@ -1,3 +1,8 @@
+---
+name: ralph-kage-bunshin-loop
+description: Use when running as a ralph-kage-bunshin worker — claims tasks, follows TDD, calls Debugger on failures, Verifier after DoD, Architect before converging
+---
+
 # /ralph-kage-bunshin-loop — Ralph Loop Skill
 
 You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PATHOLOGY is detected.

@@ -1,3 +1,8 @@
+---
+name: ralph-kage-bunshin-verify
+description: Use when a ralph worker's DoD checks have passed — independently re-runs tests and checks acceptance criteria, returns PASS/FAIL/INCOMPLETE before Architect
+---
+
 # /ralph-kage-bunshin-verify — Ralph Verifier Skill
 
 You are a Ralph Verifier. A worker called you after their DoD checks passed.

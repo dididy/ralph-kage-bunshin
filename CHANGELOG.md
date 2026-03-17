@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-03-18
+
+### Fixed
+- Added YAML frontmatter to all skill files so Claude Code discovers and lists them correctly
+
 ## [0.1.1] - 2026-03-17
 
 ### Added
