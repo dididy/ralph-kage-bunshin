@@ -1,73 +1,130 @@
 # /ralph-kage-bunshin-start — Ralph Project Setup Skill
 
-You are setting up a new Ralph project. Run a deep, free-form interview to fully understand what the user wants to build — then synthesize a tight spec and granular task list.
+You are setting up a new Ralph project. Run a structured, dimension-based interview to fully understand what the user wants to build — then synthesize a tight spec and granular task list.
 
-## Phase 1: Deep Interview
+## Phase 0: Context Detection
 
-**Goal:** Understand the project well enough to write a spec a developer with zero context could implement.
+Before asking anything, explore the environment:
 
-Ask questions freely and follow the conversation wherever it goes. You are NOT running through a fixed checklist — you are a senior engineer doing a requirements deep-dive.
+- Check if cwd has existing source files, `package.json`, or git history → **brownfield** or **greenfield**
+- Check `CLAUDE.md` if present
 
-**Start with:** "Tell me about what you want to build."
+**If `.ralph/SPEC.md` already exists:**
+> "A spec already exists for this project. Resume from where you left off, or start over?"
+> - **Resume**: read the existing SPEC.md and tasks.json, then pick up from the first incomplete dimension
+> - **Start over**: confirm before deleting — "This will overwrite the existing spec. Are you sure?"
 
-Then explore as needed. Good areas to probe (not a fixed order — follow the conversation):
+Announce:
+> Project type: {greenfield | brownfield}
+> Starting structured interview. I'll track three dimensions as we go — we proceed to spec only when all three are filled.
 
-- **Core behavior** — What does it actually do? Walk me through a user's typical session.
-- **Edge cases** — What happens when X fails? What's the unhappy path?
-- **Scope boundaries** — What are you explicitly NOT building? What's tempting to add but should wait?
-- **Done criteria** — How will you know it's done? What's measurable? What would a demo look like?
-- **Data model** — What are the main entities? How do they relate? What's the schema?
-- **Architecture** — Monolith or split services? Client-side or server-side rendering? REST or GraphQL? Realtime?
-- **Tech stack** — Frontend framework? Backend runtime? Database? ORM? Auth solution? CSS approach?
-  - Push back on vague answers. "React" is not enough — is it Next.js? App Router or Pages? With what state management?
-  - If they're unsure, make a concrete recommendation and explain why.
-  - **Language is always TypeScript unless the user explicitly says otherwise.** Do not ask — assume TypeScript and state it in the spec.
-- **External services** — Supabase, Stripe, GitHub API, etc.? What env vars will workers need?
-- **Testing strategy** — Are there UI flows that need Playwright E2E tests? Which user journeys are critical?
-  - **Default testing stack: Vitest (unit/integration) + Playwright (E2E).** If the user doesn't mention testing, confirm this default during the interview — do not silently omit it.
-- **Constraints** — Performance requirements? Mobile support? Bundle size limits? Existing codebase to integrate with?
-- **Ambiguities** — Anything unclear? Any design decisions that need to be made now?
+---
 
-**Rules:**
-- Ask one question at a time. Wait for the answer.
-- If an answer raises new questions, follow up — don't rush to the next topic.
-- Keep asking until you feel confident you could hand this spec to a stranger and they'd build the right thing.
-- When you have enough, say: "I think I have a clear picture. Let me draft the spec."
+## Phase 1: Dimension-Based Interview
 
-## Phase 2: Synthesize the Spec
+Track three dimensions throughout the interview. After every answer, display the current state:
 
-Do NOT copy the user's words verbatim. You are synthesizing, clarifying, and organizing.
+```
+[Goal ✓] [Constraints ∙∙] [Criteria ✗]
+Targeting: Criteria — no E2E scenarios defined yet
+```
 
-Write a spec that:
-- Clarifies all ambiguities you uncovered in the interview
-- Identifies implicit dependencies between tasks
-- Specifies exact done criteria — testable, not vague
-- Notes all external services and fallback strategies
-- Lists env vars needed
+Legend: ✓ = complete, ∙∙ = partial, ✗ = not started
 
-**Non-negotiable spec items — always include, even if user never mentioned them:**
-- **Language**: TypeScript (always, unless user explicitly opted out)
-- **Testing**: Vitest for unit/integration + Playwright for E2E — list at least 2–3 concrete E2E scenarios
-- **Linting/type-check**: `tsc --noEmit` + ESLint must pass as part of DoD
+### Dimension 1 — Goal Clarity
 
-**Web frontend defaults** (apply when the project has any browser UI — confirm with user if unsure):
-- Framework: Next.js 15 App Router (Server Components by default, Client Components only when interactivity requires it)
-- Styling: Tailwind CSS v4 + shadcn/ui
-- React 19 APIs — prefer these over legacy patterns wherever applicable:
-  - `useOptimistic` for optimistic UI updates
-  - `useActionState` for form/server action state
-  - `use()` to consume Promises and Context directly
-  - `useFormStatus` for form submission state
-  - Server Actions + `<form action>` pattern instead of API routes for mutations
-  - React Compiler (babel plugin) for automatic memoization — no manual `useMemo`/`useCallback`
-  - `ref` as a plain prop — no `forwardRef`
-  - No `useEffect` for data fetching — use Server Components or `use()`
-- State: avoid client-side state managers (Zustand, Redux, etc.) unless the spec clearly requires it
-- If user says "React" without specifying → ask: "Next.js App Router, or plain Vite + React SPA?"
+**Complete when:**
+- One-sentence purpose statement is possible
+- At least one core user journey is described
 
-## Phase 3: Show the Plan and Get Approval
+**Questions to explore (one at a time, follow the conversation):**
+- "What do you want to build?"
+- "Who is the primary user of this?"
+- "Walk me through the single most important action a user takes with this product."
+- "Why are you building this now? What problem does it solve?"
 
-Print the spec and task list:
+### Dimension 2 — Constraint Clarity
+
+**Complete when:**
+- Tech stack is confirmed (with specific versions/choices)
+- At least one explicit out-of-scope item is named
+
+**Questions to explore (one at a time):**
+- "Do you have a tech stack in mind already?"
+- "What are you explicitly NOT building this time — what's deferred to later?"
+- "Do you need any external services (Auth, DB, payments, etc.)?"
+- "Do you need mobile support? Any performance requirements?"
+
+**When stack choices arise, present options:**
+```
+There are a few directions here:
+
+A. [Option A] — pros: [...], cons: [...]
+B. [Option B] — pros: [...], cons: [...]
+C. [Option C] — pros: [...], cons: [...] (if applicable)
+
+Recommendation: A (reason: ...)
+```
+
+### Dimension 3 — Success Criteria
+
+**Complete when:**
+- At least 2 testable done criteria are defined
+- At least 2 E2E test scenarios are described
+
+**Questions to explore (one at a time):**
+- "How will you know it's done? If you were demoing it, what would you show?"
+- "Walk me through 2-3 core flows a user must be able to complete."
+- "What edge cases or failure scenarios must be handled?"
+- "Any non-functional requirements — performance, accessibility, SEO?"
+
+---
+
+## Phase 2: Gap Analysis
+
+After each answer, re-evaluate all three dimensions.
+
+**Loop until all three are ✓:**
+1. Identify the weakest (lowest) dimension
+2. Ask the next question targeting that dimension
+3. Update the dimension status display
+
+When ready to exit the loop, confirm:
+> "All three dimensions are complete. Moving to architecture options."
+
+If the user says "enough", "go", or similar before all dimensions are complete, show the gap:
+> "[Constraints] is still incomplete — tech stack hasn't been confirmed. Proceed anyway?"
+
+---
+
+## Phase 3: Architecture Confirmation
+
+**Do NOT re-run a full options comparison here** — stack choices were already explored during Phase 1 Dimension 2.
+
+This phase is a confirmation step: synthesize what was decided into a single clear picture and get explicit approval.
+
+```
+─────────────────────────────────────────
+ARCHITECTURE SUMMARY
+─────────────────────────────────────────
+Approach: [chosen option from Phase 1 discussion]
+Structure: [brief description]
+Stack: [confirmed choices]
+Key trade-offs accepted: [what was weighed and decided]
+─────────────────────────────────────────
+```
+
+Ask: **"Does this accurately capture what we decided? Anything to change before I write the spec?"**
+
+**Only present new options here if** the user raises a concern or if a conflict was discovered between choices made during the interview. Otherwise, confirm and move on.
+
+Wait for approval before moving to Phase 4.
+
+---
+
+## Phase 4: Show the Plan and Get Approval
+
+Synthesize everything and print:
 
 ```
 ─────────────────────────────────────────
@@ -78,10 +135,6 @@ SPEC
 ─────────────────────────────────────────
 TASKS  (N tasks → recommended N workers)
 ─────────────────────────────────────────
-1. [task name]
-2. [task name]
-...
-
 Wave 1 (run in parallel):
   1. [task]    [parallel]
   2. [task]    [parallel]
@@ -94,16 +147,17 @@ Wave 3:
   5. [task]    [after: 3, 4]
 
 Max parallel at once: 2  →  RECOMMENDATION: ralph team 2
-(Tasks 3-5 depend on earlier work — more workers won't help)
 ─────────────────────────────────────────
 ```
 
-Then ask: **"Does this look right? Any changes before I write the files?"**
+Ask: **"Does this look right? Any changes before I write the files?"**
 
-- If the user requests changes: revise and show again. Repeat until approved.
-- If the user says yes: proceed to Phase 4.
+- Changes requested → revise and show again
+- Approved → Phase 5
 
-## Phase 4: Write Project Files
+---
+
+## Phase 5: Write Project Files and Hand Off
 
 ### `.ralph/SPEC.md`
 ```markdown
@@ -117,30 +171,27 @@ Then ask: **"Does this look right? Any changes before I write the files?"**
 [explicit scope exclusions]
 
 ## Architecture
-[e.g. Next.js 15 App Router, Server Components first, Supabase for DB + Auth, deployed to Vercel]
+[confirmed in Phase 3]
 
 ## Tech Stack
 - **Frontend**: [framework, version, key libraries]
 - **Backend**: [runtime, framework, or "Server Actions via Next.js"]
-- **Database**: [DB + ORM, e.g. "PostgreSQL via Supabase, Drizzle ORM"]
-- **Auth**: [e.g. Supabase Auth, NextAuth, Clerk]
-- **Styling**: [e.g. Tailwind CSS v4, shadcn/ui]
-- **Testing**: [e.g. Vitest + Playwright for E2E]
-- **Deployment**: [e.g. Vercel, Railway, Fly.io]
+- **Database**: [DB + ORM]
+- **Auth**: [solution]
+- **Styling**: [approach]
+- **Testing**: Vitest + Playwright for E2E
+- **Deployment**: [target]
 
 ## Done = ?
 [measurable completion criteria — specific and testable]
 
 ## E2E Test Scenarios
-[key user journeys that must have Playwright tests, e.g.]
-- User can sign up, log in, and log out
-- User can create, edit, and delete a todo item
-- Offline: shows error state gracefully
-
-**Each scenario must be assigned to a specific task** (see tasks.json). Workers only write E2E tests for the scenarios listed in their task description — not all scenarios at once.
+[list scenarios from Dimension 3, each with the task ID responsible for implementing it]
+- User can [action] → task N
+- User can [action] → task N
 
 ## External Dependencies
-[services, API keys needed, fallback strategies, or "None"]
+[services, API keys, fallback strategies, or "None"]
 ```
 
 ### `.ralph/tasks.json`
@@ -148,53 +199,21 @@ Then ask: **"Does this look right? Any changes before I write the files?"**
 {
   "tasks": [
     { "id": 1, "name": "Project setup", "status": "pending", "worker": null },
-    { "id": 2, "name": "[task name]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true },
-    { "id": 3, "name": "[task name]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true },
-    { "id": 4, "name": "[task name]", "status": "pending", "worker": null, "depends_on": [2, 3] }
+    { "id": 2, "name": "[task]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true },
+    { "id": 3, "name": "[task]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true },
+    { "id": 4, "name": "[task]", "status": "pending", "worker": null, "depends_on": [2, 3] }
   ]
 }
 ```
 
-- Tasks with no `depends_on` (or empty array) are claimable immediately
-- Tasks with `depends_on: [N, M]` are only claimable after tasks N and M are both `"converged"`
-- Workers automatically skip tasks whose dependencies aren't met yet — no manual coordination needed
-- Tasks with `"isolated": true` will be worked on in a dedicated git worktree (`feat/worker-N-<slug>` branch), keeping parallel work completely separate. The branch is merged or PR'd after the architect approves.
-
-**Always include a setup task if the project needs initial environment setup** (e.g. `npm install`, `npx playwright install`, scaffold). Make all other tasks `depends_on: [1]` so workers wait for setup to complete before starting real work.
-
-**Set `"isolated": true` on tasks that run in parallel (same wave) and may touch overlapping files.** Tasks that are strictly sequential don't need isolation — they run one after another on the same branch.
-
-**Task granularity rules:**
-- Each task is completable in one focused worker session (~1-3 hours of coding)
-- Each task must be specific enough to write tests for
-- If a feature is large, split it into: (a) data model + schema, (b) core logic, (c) API/UI layer
-- When unsure: split rather than merge
-- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that implements that feature. Do NOT create a single "write all E2E tests" task at the end. Example: "Auth UI — login form + Playwright E2E: user can log in and log out"
-
-**Dependency analysis (critical for worker count recommendation):**
-
-For each task, explicitly decide: can it run in parallel with others, or does it depend on another task being done first?
-
-Label each task with one of:
-- `[parallel]` — no dependencies, can start immediately → `depends_on` omitted
-- `[after: N]` — must wait for task N → `"depends_on": [N]`
-- `[after: N, M]` — must wait for both → `"depends_on": [N, M]`
-
-Then count the maximum number of tasks that can run simultaneously at any wave. That number is your worker recommendation — not the total task count.
-
-Example:
-```
-Task 1: Project setup            [parallel]   ← wave 1: run first, others wait
-Task 2: DB schema + types        [after: 1]   ← wave 2: 3 tasks run together
-Task 3: Auth module              [after: 1]   ← wave 2
-Task 4: File upload util         [after: 1]   ← wave 2
-Task 5: User profile API         [after: 2,3] ← wave 3: depends on schema + auth
-Task 6: Dashboard UI             [after: 5]   ← wave 4
-Task 7: E2E tests                [after: 6]   ← wave 5
-```
-→ Max parallelism = 3 (wave 2) → recommend `ralph team 3`
-
-If most tasks are sequential (wave by wave with 1-2 tasks each), recommend 2-3 workers max. Extra workers just sit idle.
+**Task rules:**
+- `depends_on` tasks are only claimable after all listed tasks are `"converged"`
+- `isolated: true` on parallel tasks that may touch overlapping files
+- Each task completable in one focused session (~1-3 hours)
+- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that implements that feature. Never create a single "write all E2E tests" task at the end.
+- **Task granularity**: if a feature is large, split into (a) data model + schema, (b) core logic, (c) API/UI layer. When unsure: split rather than merge.
+- Always include a setup task (id: 1) if the project needs initial scaffolding. All other tasks `depends_on: [1]`.
+- Max parallelism per wave determines the worker recommendation — not total task count.
 
 ### `CLAUDE.md`
 ```markdown
@@ -216,7 +235,7 @@ If most tasks are sequential (wave by wave with 1-2 tasks each), recommend 2-3 w
 ## Definition of Done
 - [ ] `npm test` passes (all Vitest tests green)
 - [ ] `npm run build` has no errors
-- [ ] E2E scenarios in SPEC.md covered by Playwright tests (if applicable to this task)
+- [ ] E2E scenarios in SPEC.md covered by Playwright tests (if applicable)
 - [ ] Assigned task complete per .ralph/SPEC.md done criteria
 
 ## Convergence Condition
@@ -226,29 +245,16 @@ When all DoD items above are satisfied:
 3. If REJECTED: fix the gaps and repeat DoD checks
 ```
 
-### `.ralph/.env` (only if env vars were mentioned)
-```
-KEY=
-KEY2=
-```
-Add `.ralph/.env` to `.gitignore` if not already present.
-
-## Phase 5: Hand Off
-
-Do NOT run `ralph team` automatically. Print this and stop:
+Write the files, then do NOT run `ralph team` automatically. Print this and stop:
 
 ```
 [OK] .ralph/SPEC.md written
 [OK] .ralph/tasks.json written (N tasks)
 [OK] CLAUDE.md written
-[OK] .ralph/.env created  (if applicable)
 
 Ready. Run this in your terminal to start workers:
 
   ralph team N
-
-(N = max parallel tasks per wave analysis above — see TASKS section for recommendation)
-You can run fewer workers; extra tasks will queue and be claimed automatically.
 
 To watch workers in tmux:
 
@@ -259,11 +265,15 @@ To monitor status:
   ralph status --watch
 ```
 
+---
+
 ## Rules
 
-- Never skip the approval step (Phase 3)
-- Never ask all interview questions at once
-- Never accept vague done criteria — push for measurable outcomes
-- The spec is your synthesis, not a transcript of the interview
-- Write actual files using your tools — do not just print the content
-- Task count drives the worker recommendation — more granular is better
+- **One question at a time** — always
+- **Display dimension status after every answer** — never skip
+- **Options when choices arise** — 2-3 options with trade-offs and a recommendation
+- **Never accept vague done criteria** — push for testable outcomes
+- **Never skip Phase 3 approval** — architecture must be confirmed before spec
+- **Never skip Phase 4 approval** — spec must be approved before writing files
+- **TypeScript always** — unless user explicitly opts out
+- **Vitest + Playwright always** — default testing stack

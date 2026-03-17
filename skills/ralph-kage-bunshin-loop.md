@@ -96,7 +96,7 @@ Read the current state.json first, then write back with:
 
 | Pattern | Condition | Response |
 |---------|-----------|----------|
-| Stagnation | `consecutive_failures >= 3` | Break task into smaller pieces |
+| Stagnation | `consecutive_failures >= 3` | Call `/ralph-kage-bunshin-debug` with your worker ID, project dir, task name, and the last error output. Apply the proposed fix. If confidence was low or the fix also fails after 3 more attempts, break the task into smaller pieces. |
 | Oscillation | The last 4 entries of `last_results` are `['fail','pass','fail','pass']` — check with `last_results.slice(-4).join()` === `'fail,pass,fail,pass'` | Lock the decision in CLAUDE.md |
 | WonderLoop | Same question/approach attempted 3+ times in this session | Choose a different approach |
 
@@ -113,6 +113,7 @@ Write to `.ralph/workers/worker-N/PROGRESS.md`:
 - task: [what you did]
 - result: pass / fail / PATHOLOGY — [type]
 - next: [what to do next, or "CONVERGED" if done, or "EXITING — pathology" if stopping]
+- learnings: [one sentence — what you discovered that the next worker should know, or "none"]
 ```
 
 ### 7. DoD check
@@ -132,13 +133,16 @@ Also verify your assigned task's status is `'in-progress'` and all its work is c
 
 **When all 3 conditions are true:**
 1. Set `dod_checklist` all to `true` in state.json
-2. Call `/ralph-kage-bunshin-architect` — pass it your worker ID, project directory, and task name
+2. Call `/ralph-kage-bunshin-verify` — pass it your worker ID, project directory, and task name
+   - If verdict is **PASS**: continue to step 3
+   - If verdict is **FAIL** or **INCOMPLETE**: fix the gaps listed, re-run DoD, then call Verifier again
+3. Call `/ralph-kage-bunshin-architect` — pass it your worker ID, project directory, and task name
    - **Do NOT write `architect_review`, `converged`, or task status yourself** — the architect writes all of these atomically
    - After the architect responds, **read your own state.json** (`.ralph/workers/worker-N/state.json`) and verify `converged === true`
    - Do NOT act on another worker's architect verdict — only your own state.json matters
-   - If `converged === true`: the architect has already updated both state.json and tasks.json — continue to step 3
+   - If `converged === true`: the architect has already updated both state.json and tasks.json — continue to step 4
    - If `converged` is still `false`: the architect rejected. Read `architect_review.notes`, fix each issue, re-run DoD checks, then call `/ralph-kage-bunshin-architect` again
-3. **If the task had `"isolated": true`** — merge or PR the worktree branch:
+4. **If the task had `"isolated": true`** — merge or PR the worktree branch:
    - If the project has a remote (`git remote -v` returns output): create a PR
      ```bash
      git -C $RALPH_PROJECT_DIR/.ralph/workers/worker-N/worktree push -u origin feat/worker-N-<slug>
@@ -153,9 +157,9 @@ Also verify your assigned task's status is `'in-progress'` and all its work is c
      git worktree remove --force $RALPH_PROJECT_DIR/.ralph/workers/worker-N/worktree
      git branch -D feat/worker-N-<slug>
      ```
-4. Send a mailbox message via `sendMessage`: `{ from: N, to: "all", type: "task_complete", subject: "task N complete: [name]", body: "brief summary of what was built" }`
-5. Write final PROGRESS.md entry with `result: pass` and `next: CONVERGED`
-6. Print:
+5. Send a mailbox message via `sendMessage`: `{ from: N, to: "all", type: "task_complete", subject: "task N complete: [name]", body: "brief summary of what was built" }`
+6. Write final PROGRESS.md entry with `result: pass` and `next: CONVERGED`
+7. Print:
 
 ```
 CONVERGED

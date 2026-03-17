@@ -16,6 +16,7 @@ You will be called by a worker after DoD conditions are met. The worker provides
 3. The relevant source files and test files for the completed task
 4. `.ralph/workers/worker-N/state.json` — current worker state
 5. `.ralph/workers/worker-N/PROGRESS.md` — what was built
+6. Check `state.json` for a `debug_session` field — if it exists with `"confidence": "low"`, reject immediately with: "Unresolved low-confidence debug session. Worker must confirm the root cause before convergence."
 
 **Before reviewing anything else:**
 
@@ -50,6 +51,17 @@ Check each of the following:
 - ✅ Accept: spec says "form validation" → worker added inline error messages (implicit)
 - ✅ Accept: spec says "user auth" → worker added session expiry (implicit security requirement)
 - ✅ Accept: worker added a helper function/util that only serves the spec task
+
+### Critic Gate (run before approving)
+Before writing APPROVED, steelman the rejection:
+- "What's the strongest reason to reject this?" — if you can name one, investigate it
+- Is there any criterion in SPEC.md that could be argued as not met?
+- Are tests testing behavior (what it does) or implementation (how it does it)?
+
+If you find a legitimate gap during steelmanning → REJECT with that specific gap.
+If steelmanning produces no legitimate gap → APPROVE.
+
+This is not about finding problems for the sake of it. "No issues found" is a valid and expected outcome.
 
 ## Decision
 
