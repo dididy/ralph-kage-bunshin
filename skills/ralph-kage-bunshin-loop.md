@@ -1,17 +1,26 @@
 ---
 name: ralph-kage-bunshin-loop
-description: Use when running as a ralph-kage-bunshin worker — claims tasks, follows TDD, calls Debugger on failures, Verifier after DoD, Architect before converging
+description: Use when running as a ralph-kage-bunshin worker — claims tasks, follows TDD, calls Debugger on failures, inline verify + architect review before converging
 ---
 
 # /ralph-kage-bunshin-loop — Ralph Loop Skill
 
 You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PATHOLOGY is detected.
 
+> **External skills used by this loop** (install separately if needed):
+> - `/playwright-test-generator` — generate E2E tests for browser UI tasks
+> - `/e2e-reviewer` — review Playwright test quality
+> - `/playwright-debugger` — diagnose E2E test failures
+> - `/transition-reverse-engineering` — capture animation/transition timing from reference sites
+> - `/ui-reverse-engineering` — capture layout/interaction behavior from reference sites
+>
+> If any of these are not installed, skip the relevant step and note it in PROGRESS.md.
+
 ## On Start
 
 **Claim your task (follow this order exactly):**
 
-**Your worker ID** = the value of the `RALPH_WORKER_ID` environment variable. Read it with `echo $RALPH_WORKER_ID`. Keep this ID for the entire session — every task you claim uses this same ID.
+**Your worker ID** = the value of the `RALPH_WORKER_ID` environment variable. Read it with `echo $RALPH_WORKER_ID`. Keep this ID for the entire session — every task you claim uses this same ID. **Throughout this skill, replace every occurrence of `N` in paths like `worker-N/` and branch names like `feat/worker-N-<slug>` with your actual worker ID number.**
 
 **Project directory** = `$RALPH_PROJECT_DIR` (the root of the project, where `.ralph/` lives). This is always the main repo root, even when working in a worktree.
 
@@ -20,8 +29,13 @@ You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PA
    - Its `status` is `'pending'`, AND
    - It has no `depends_on`, OR all task IDs in `depends_on` have `status: 'converged'`
 3. Pick the claimable task with the **lowest ID number**
-4. **Immediately** call `claimTask(projectDir, taskId, workerId)` — this sets `status: 'in-progress'`, `claimed_at`, `lease_expires_at` (+5 min), and `worker`. Save tasks.json.
-5. **Re-read tasks.json and verify your claim won** — check that the task's `worker` field is still your worker ID. If another worker overwrote it, go back to step 2 and pick the next claimable pending task.
+4. **Immediately** write to `.ralph/tasks.json`: set the task's `status` to `'in-progress'`, `claimed_at` to now (ISO), `lease_expires_at` to now + 5 minutes, and `worker` to your worker ID. Save tasks.json.
+5. **MANDATORY CLAIM VERIFICATION — do not skip this step:**
+   - Wait 1 second (let other workers write if they're racing)
+   - Re-read `.ralph/tasks.json` from disk
+   - Check: does the task's `worker` field equal YOUR worker ID? Compare as numbers (`Number(task.worker) === Number(YOUR_WORKER_ID)`)
+   - **If YES**: claim is yours — proceed to step 6
+   - **If NO**: another worker won the race — **STOP immediately. Do not write any files, do not implement, do not run commands related to this task.** Discard any work already done. Go back to step 2 and pick a different pending task. If no other tasks are available, follow step 7.
 6. **If the claimed task has `"isolated": true`** — create a git worktree:
    ```bash
    git worktree add -b feat/worker-N-<task-slug> $RALPH_PROJECT_DIR/.ralph/workers/worker-N/worktree
@@ -33,7 +47,7 @@ You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PA
    - If git is not available, skip worktree and work in `$RALPH_PROJECT_DIR` as normal
 7. If no claimable pending tasks exist:
    - If some tasks are `'pending'` but blocked (dependencies not yet converged) → **wait**: sleep 30 seconds, then go back to step 1
-   - If all tasks are `'in-progress'` → all remaining work is handled by other workers. Exit.
+   - If all tasks are `'in-progress'` → all remaining work is handled by other workers. Run `ralph recover` (in case any are stuck), then exit.
    - If all tasks are `'converged'` → the project is done. Exit.
 
 Then read in this order:
@@ -65,6 +79,12 @@ Repeat the following until CONVERGED or PATHOLOGY detected:
 
 ### 1. Implement the next step
 - Record what you're implementing in PROGRESS.md
+- **If the task involves reverse-engineering visual behavior** (animations, transitions, UI cloning — check task `description` for `/transition-reverse-engineering` or `/ui-reverse-engineering`):
+  1. Run `/transition-reverse-engineering` (for animation/transition timing) or `/ui-reverse-engineering` (for layout/interaction behavior) to capture reference recording/frames from the original site — dismiss any modals before recording
+  2. Capture the same recording/frames from our implementation
+  3. Compare side-by-side and adjust timing/easing using measured values only — no guessing
+  4. Repeat until 100% match before proceeding
+  5. **"Already implemented" is not grounds for skipping this step** — visual comparison is mandatory every time
 - **If the task involves any browser UI** (pages, forms, interactions, routing):
   1. Write E2E spec first using `/playwright-test-generator` — describe the user scenario before touching implementation code
   2. Run the E2E test to confirm it fails (red)
@@ -78,7 +98,14 @@ Repeat the following until CONVERGED or PATHOLOGY detected:
   4. Capture actual test output (no assumptions)
 
 ### 2. Renew lease
-Call `renewLease(projectDir, taskId, workerId)` — this extends `lease_expires_at` to now + 5 minutes. Do this **before** running tests, and again after tests complete.
+Read `.ralph/tasks.json`, update `lease_expires_at` for your task, write it back. Do this **before** running tests, and again after tests complete.
+
+```js
+lease_expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+// e.g. "2026-03-19T01:23:45.678Z"
+```
+
+Do not hand-type a timestamp — always calculate from `Date.now()`.
 
 ### 3. Run tests and capture output
 ```bash
@@ -127,27 +154,52 @@ Run these and check actual output:
 ```bash
 npm test              # all Vitest tests pass
 npm run build         # no build errors
-npm run test:e2e      # Playwright E2E tests pass (skip if no E2E script in package.json)
 ```
+
+For E2E: check `package.json` `scripts` for a Playwright-specific script — look for keys containing `e2e`, `playwright`, or similar (e.g. `test:e2e`, `e2e`, `playwright`). These are distinct from `npm test` which runs Vitest unit tests. Run the Playwright script if present; skip only if none exists.
 
 **For UI tasks — before calling architect:**
 - Run `/e2e-reviewer` on your Playwright test files and fix any issues flagged
 - E2E tests must cover all scenarios assigned to this task in `.ralph/SPEC.md`
 
-Also verify your assigned task's status is `'in-progress'` and all its work is complete.
+Also verify that all acceptance criteria in the task's `description` field (from `.ralph/tasks.json`) are implemented.
 
 **When all 3 conditions are true:**
-1. Set `dod_checklist` all to `true` in state.json
-2. Call `/ralph-kage-bunshin-verify` — pass it your worker ID, project directory, and task name
-   - If verdict is **PASS**: continue to step 3
-   - If verdict is **FAIL** or **INCOMPLETE**: fix the gaps listed, re-run DoD, then call Verifier again
-3. Call `/ralph-kage-bunshin-architect` — pass it your worker ID, project directory, and task name
-   - **Do NOT write `architect_review`, `converged`, or task status yourself** — the architect writes all of these atomically
-   - After the architect responds, **read your own state.json** (`.ralph/workers/worker-N/state.json`) and verify `converged === true`
-   - Do NOT act on another worker's architect verdict — only your own state.json matters
-   - If `converged === true`: the architect has already updated both state.json and tasks.json — continue to step 4
-   - If `converged` is still `false`: the architect rejected. Read `architect_review.notes`, fix each issue, re-run DoD checks, then call `/ralph-kage-bunshin-architect` again
-4. **If the task had `"isolated": true`** — merge or PR the worktree branch:
+
+1. **Verification (inline — do NOT call a separate skill):**
+   Run fresh:
+   ```bash
+   npm test 2>&1 | tail -30
+   npm run build 2>&1 | tail -20
+   ```
+   For each acceptance criterion in `.ralph/tasks.json` for your task:
+   - Mark as VERIFIED (test exists and passes), PARTIAL, or MISSING
+   For E2E scenarios assigned to this task in `.ralph/SPEC.md`:
+   - Mark as COVERED or MISSING
+
+   **Verdict:**
+   - All VERIFIED + all E2E COVERED + tests + build green → **proceed immediately to step 2**
+   - FAIL or INCOMPLETE → fix the gaps, re-run DoD, then repeat step 1
+
+2. **Architect review (inline — do NOT call a separate skill):**
+   Read: `.ralph/SPEC.md`, `CLAUDE.md`, source + test files for the task, `.ralph/workers/worker-N/state.json`, `.ralph/workers/worker-N/PROGRESS.md`
+
+   Check:
+   - All spec requirements met? No done criteria missing?
+   - Tests test behavior (not implementation details)?
+   - No scope creep (nothing built outside the spec)?
+   - No unresolved `debug_session` with `confidence: low` in state.json?
+   - Steelman: "What's the strongest reason to reject?" — if you find one, reject. If none, approve.
+
+   **If APPROVED:**
+   - Write `.ralph/workers/worker-N/state.json` — set `converged: true`, set `dod_checklist` all to `true`, add `architect_review: { status: "approved", reviewed_at: "<ISO>", notes: "<brief reason>" }` (preserve all other fields)
+   - Write `.ralph/tasks.json` — set this task's `status` to `"converged"`
+   - Continue to step 3
+
+   **If REJECTED:**
+   - Write `.ralph/workers/worker-N/state.json` — add `architect_review: { status: "rejected", reviewed_at: "<ISO>", notes: "<specific gaps>" }` (preserve all other fields)
+   - Fix each gap listed, re-run DoD, then repeat step 1
+3. **If the task had `"isolated": true`** — merge or PR the worktree branch:
    - If the project has a remote (`git remote -v` returns output): create a PR
      ```bash
      git -C $RALPH_PROJECT_DIR/.ralph/workers/worker-N/worktree push -u origin feat/worker-N-<slug>
@@ -162,9 +214,12 @@ Also verify your assigned task's status is `'in-progress'` and all its work is c
      git worktree remove --force $RALPH_PROJECT_DIR/.ralph/workers/worker-N/worktree
      git branch -D feat/worker-N-<slug>
      ```
-5. Send a mailbox message via `sendMessage`: `{ from: N, to: "all", type: "task_complete", subject: "task N complete: [name]", body: "brief summary of what was built" }`
-6. Write final PROGRESS.md entry with `result: pass` and `next: CONVERGED`
-7. Print:
+4. Write a mailbox message file to `.ralph/mailbox/<timestamp>-worker-N.json`:
+   ```json
+   { "from": N, "to": "all", "type": "task_complete", "subject": "task N complete: [name]", "body": "brief summary of what was built", "timestamp": "<ISO>" }
+   ```
+5. Write final PROGRESS.md entry with `result: pass` and `next: CONVERGED`
+6. Print:
 
 ```
 CONVERGED

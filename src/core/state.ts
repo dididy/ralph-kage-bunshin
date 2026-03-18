@@ -71,7 +71,7 @@ export function claimTask(projectDir: string, taskId: number, workerId: number):
     return {
       ...t,
       status: 'in-progress' as const,
-      worker: workerId,
+      worker: Number(workerId),
       claimed_at: now.toISOString(),
       lease_expires_at: new Date(now.getTime() + LEASE_DURATION_MS).toISOString(),
     }
@@ -84,13 +84,40 @@ export function renewLease(projectDir: string, taskId: number, workerId: number)
   const updated = tasks.map(t => {
     if (t.id !== taskId) return t
     // Only renew if this worker still owns the task and it's in-progress
-    if (t.status !== 'in-progress' || t.worker !== workerId) return t
+    if (t.status !== 'in-progress' || Number(t.worker) !== Number(workerId)) return t
     return {
       ...t,
       lease_expires_at: new Date(Date.now() + LEASE_DURATION_MS).toISOString(),
     }
   })
   writeTasks(projectDir, updated)
+}
+
+const STUCK_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
+
+export function resetStuckTasks(projectDir: string): number[] {
+  const tasks = readTasks(projectDir)
+  const now = Date.now()
+  const stuckIds: number[] = []
+
+  const updated = tasks.map(t => {
+    if (t.status !== 'in-progress' || t.worker === null) return t
+    const state = readWorkerState(projectDir, Number(t.worker))
+    if (!state) return t
+    const lastUpdate = new Date(state.updated_at).getTime()
+    if (now - lastUpdate > STUCK_THRESHOLD_MS) {
+      stuckIds.push(t.id)
+      const { claimed_at: _ca, lease_expires_at: _le, ...rest } = t
+      return { ...rest, status: 'pending' as const, worker: null }
+    }
+    return t
+  })
+
+  if (stuckIds.length > 0) {
+    writeTasks(projectDir, updated)
+  }
+
+  return stuckIds
 }
 
 export function resetExpiredLeases(projectDir: string): number[] {

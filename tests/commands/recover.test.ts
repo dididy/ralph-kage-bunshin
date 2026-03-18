@@ -18,6 +18,7 @@ describe('ralph recover', () => {
     vi.mocked(tmux.applyLayout).mockReturnValue(undefined)
     vi.mocked(tmux.sendKeys).mockReturnValue(undefined)
     vi.mocked(state.writeWorkerState).mockReturnValue(undefined)
+    vi.mocked(state.resetStuckTasks).mockReturnValue([])
     vi.mocked(caffeinate.startCaffeinate).mockReturnValue(undefined)
     vi.mocked(configModule.loadConfig).mockReturnValue({
       notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
@@ -25,7 +26,7 @@ describe('ralph recover', () => {
     })
   })
 
-  it('pending task가 없으면 session을 생성하지 않는다', () => {
+  it('does not create a session when there are no pending tasks', () => {
     vi.mocked(state.resetExpiredLeases).mockReturnValue([])
     vi.mocked(state.readTasks).mockReturnValue([
       { id: 1, name: 'task1', status: 'converged', worker: 1 },
@@ -34,7 +35,7 @@ describe('ralph recover', () => {
     expect(tmux.createSession).not.toHaveBeenCalled()
   })
 
-  it('pending task 수만큼 worker를 생성한다', () => {
+  it('creates one worker per pending task', () => {
     vi.mocked(state.resetExpiredLeases).mockReturnValue([1])
     vi.mocked(state.readTasks).mockReturnValue([
       { id: 1, name: 'expired-task', status: 'pending', worker: null },
@@ -46,7 +47,7 @@ describe('ralph recover', () => {
     expect(tmux.splitPane).not.toHaveBeenCalled()
   })
 
-  it('새 worker ID는 기존 최대 worker ID 이후부터 시작한다', () => {
+  it('assigns new worker IDs starting after the current maximum worker ID', () => {
     vi.mocked(state.resetExpiredLeases).mockReturnValue([])
     vi.mocked(state.readTasks).mockReturnValue([
       { id: 1, name: 'done', status: 'converged', worker: 3 },
@@ -57,7 +58,7 @@ describe('ralph recover', () => {
     expect(allCmds).toContain('export RALPH_WORKER_ID=4')
   })
 
-  it('pending task 2개면 session에 pane 1개 추가 분할한다', () => {
+  it('splits one extra pane when there are 2 pending tasks', () => {
     vi.mocked(state.resetExpiredLeases).mockReturnValue([1, 2])
     vi.mocked(state.readTasks).mockReturnValue([
       { id: 1, name: 'task1', status: 'pending', worker: null },

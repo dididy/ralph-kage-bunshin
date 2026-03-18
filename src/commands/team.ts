@@ -5,12 +5,13 @@ import { writeWorkerState } from '../core/state'
 import { startCaffeinate } from '../core/caffeinate'
 import { loadConfig } from '../core/config'
 
+const shellQuote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`
+
 export function launchWorkers(
   sessionName: string,
   workerIds: number[],
   projectDir: string,
 ): void {
-  const shellQuote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`
   const envPath = path.join(projectDir, '.ralph', '.env')
 
   for (let i = 0; i < workerIds.length; i++) {
@@ -64,9 +65,14 @@ export function runTeam(workerCount: number, projectDir: string): void {
   const workerIds = Array.from({ length: workerCount }, (_, i) => i + 1)
   launchWorkers(sessionName, workerIds, projectDir)
 
-  console.log(`\n[OK] Ralph team started: ${sessionName} (${workerCount} workers)`)
+  // Add a status --watch pane
+  splitPane(sessionName)
+  applyLayout(sessionName, 'tiled')
+  const statusPaneIdx = workerCount
+  sendKeys(sessionName, statusPaneIdx, `cd ${shellQuote(projectDir)}`)
+  sendKeys(sessionName, statusPaneIdx, `ralph status --watch`)
+
+  console.log(`\n[OK] Ralph team started: ${sessionName} (${workerCount} workers + 1 status pane)`)
   console.log(`\nTo watch workers:`)
-  console.log(`  tmux attach -t '${sessionName}'`)
-  console.log(`\nTo monitor status:`)
-  console.log(`  ralph status --watch\n`)
+  console.log(`  tmux attach -t '${sessionName}'\n`)
 }

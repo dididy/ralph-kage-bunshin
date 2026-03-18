@@ -1,4 +1,4 @@
-import { readTasks, readWorkerState, resetExpiredLeases } from '../core/state'
+import { readTasks, readWorkerState, resetExpiredLeases, resetStuckTasks } from '../core/state'
 import { countUnread, listMessages } from '../core/mailbox'
 import { notify } from '../core/notify'
 import { loadConfig } from '../core/config'
@@ -79,6 +79,15 @@ export function printStatus(
   }
   if (expiredIds.length > 0 && autoRecover) {
     console.log(`  [RECOVER] Auto-recovering ${expiredIds.length} expired task(s)...`)
+    runRecover(projectDir)
+  }
+
+  const stuckIds = resetStuckTasks(projectDir)
+  for (const id of stuckIds) {
+    console.log(`  [STUCK] Task ${id} stuck (no update >10min) — reset to pending`)
+  }
+  if (stuckIds.length > 0 && autoRecover) {
+    console.log(`  [RECOVER] Auto-recovering ${stuckIds.length} stuck task(s)...`)
     runRecover(projectDir)
   }
 

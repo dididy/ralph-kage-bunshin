@@ -3,6 +3,7 @@
 export interface Task {
   id: number
   name: string
+  description?: string
   status: 'pending' | 'in-progress' | 'converged' | 'pathology'
   worker: number | null
   depends_on?: number[]

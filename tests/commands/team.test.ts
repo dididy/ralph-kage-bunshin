@@ -28,18 +28,19 @@ describe('ralph team', () => {
     vi.mocked(execSync).mockReturnValue(Buffer.from(''))
   })
 
-  it('tmux 세션을 생성한다', () => {
+  it('creates a tmux session', () => {
     runTeam(3, '/tmp/test-project')
     expect(tmux.createSession).toHaveBeenCalledWith('ralph-test-project')
   })
 
-  it('워커 N-1번 pane을 추가로 분할하고 tiled 레이아웃을 적용한다', () => {
+  it('splits N-1 worker panes plus 1 status pane and applies tiled layout', () => {
     runTeam(3, '/tmp/test-project')
-    expect(tmux.splitPane).toHaveBeenCalledTimes(2)
+    // N-1 splits for workers + 1 split for status pane = N splits total
+    expect(tmux.splitPane).toHaveBeenCalledTimes(3)
     expect(tmux.applyLayout).toHaveBeenCalledWith(expect.any(String), 'tiled')
   })
 
-  it('각 워커에 RALPH_WORKER_ID 환경변수를 주입한다', () => {
+  it('injects RALPH_WORKER_ID env var into each worker pane', () => {
     runTeam(3, '/tmp/test-project')
     const allCalls = vi.mocked(tmux.sendKeys).mock.calls.map(c => c[2])
     expect(allCalls).toContain('export RALPH_WORKER_ID=1')
@@ -47,12 +48,12 @@ describe('ralph team', () => {
     expect(allCalls).toContain('export RALPH_WORKER_ID=3')
   })
 
-  it('tasks.json에 worker를 미리 할당하지 않는다', () => {
+  it('does not pre-assign workers in tasks.json', () => {
     runTeam(3, '/tmp/test-project')
     expect(state.writeTasks).not.toHaveBeenCalled()
   })
 
-  it('각 pane에서 /ralph-kage-bunshin-loop으로 claude를 실행한다', () => {
+  it('launches claude with /ralph-kage-bunshin-loop in each worker pane', () => {
     runTeam(3, '/tmp/test-project')
     const claudeCalls = vi.mocked(tmux.sendKeys).mock.calls
       .map(c => c[2])
@@ -61,7 +62,7 @@ describe('ralph team', () => {
     claudeCalls.forEach(cmd => expect(cmd).toContain('/ralph-kage-bunshin-loop'))
   })
 
-  it('기존 세션이 있으면 kill하고 재생성한다', () => {
+  it('kills and recreates the session when one already exists', () => {
     vi.mocked(tmux.sessionExists).mockReturnValue(true)
     runTeam(2, '/tmp/test-project')
     expect(tmux.killSession).toHaveBeenCalledWith('ralph-test-project')

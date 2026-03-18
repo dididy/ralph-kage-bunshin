@@ -14,7 +14,7 @@ describe('notify', () => {
     vi.mocked(execFileSync).mockClear()
   })
 
-  it('macOS 알림을 osascript로 실행한다', () => {
+  it('sends macOS notification via osascript', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     notify({ title: 'Ralph', message: 'CONVERGED', config: baseConfig })
@@ -25,7 +25,7 @@ describe('notify', () => {
     )
   })
 
-  it('slack_webhook이 설정되면 curl POST 요청을 보낸다', () => {
+  it('sends a curl POST request when slack_webhook is configured', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     notify({
@@ -39,7 +39,7 @@ describe('notify', () => {
     )
   })
 
-  it('macos가 false이면 osascript를 실행하지 않는다', () => {
+  it('does not run osascript when macos is false', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     notify({ title: 'Ralph', message: 'test', config: { ...baseConfig, notifications: { macos: false, slack_webhook: '', discord_webhook: '' } } })

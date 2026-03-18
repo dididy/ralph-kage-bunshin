@@ -16,6 +16,7 @@ describe('ralph status', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.mocked(state.resetExpiredLeases).mockReturnValue([])
+    vi.mocked(state.resetStuckTasks).mockReturnValue([])
     vi.mocked(mailboxModule.countUnread).mockReturnValue(0)
     vi.mocked(recoverModule.runRecover).mockReturnValue(undefined)
   })

@@ -5,7 +5,7 @@ import { execFileSync } from 'child_process'
 vi.mock('child_process')
 
 describe('tmux', () => {
-  it('세션 생성 명령을 올바르게 실행한다', () => {
+  it('runs the correct command to create a session', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     createSession('ralph-test')
@@ -16,7 +16,7 @@ describe('tmux', () => {
     )
   })
 
-  it('pane 분할 명령을 실행한다', () => {
+  it('runs the split-window command', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     splitPane('ralph-test')
@@ -27,7 +27,7 @@ describe('tmux', () => {
     )
   })
 
-  it('pane에 명령을 전송한다', () => {
+  it('sends keys to a pane', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     sendKeys('ralph-test', 0, 'echo hello')
@@ -38,13 +38,13 @@ describe('tmux', () => {
     )
   })
 
-  it('tmux 명령 실패 시 TmuxError를 던진다', () => {
+  it('throws TmuxError when tmux command fails', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockImplementation(() => { throw new Error('tmux not found') })
     expect(() => createSession('test')).toThrow(TmuxError)
   })
 
-  it('applyLayout 명령을 실행한다', () => {
+  it('runs the select-layout command', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     applyLayout('ralph-test', 'tiled')
@@ -55,7 +55,7 @@ describe('tmux', () => {
     )
   })
 
-  it('killSession 명령을 실행한다', () => {
+  it('runs the kill-session command', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockReturnValue(Buffer.from(''))
     killSession('ralph-test')

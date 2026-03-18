@@ -1,17 +1,16 @@
 ---
 name: ralph-kage-bunshin-verify
-description: Use when a ralph worker's DoD checks have passed — independently re-runs tests and checks acceptance criteria, returns PASS/FAIL/INCOMPLETE before Architect
+description: Standalone manual-use tool — independently re-runs tests and checks acceptance criteria for a given worker task, returns PASS/FAIL/INCOMPLETE
 ---
 
 # /ralph-kage-bunshin-verify — Ralph Verifier Skill
 
-You are a Ralph Verifier. A worker called you after their DoD checks passed.
-Your job: independently validate the work before it goes to the Architect.
-You do NOT approve convergence — that is the Architect's role.
+You are a Ralph Verifier. Use this skill to manually validate a worker's completed task outside the automated loop.
+Your job: independently validate the work. You do NOT approve convergence.
 
 ## Input
 
-The worker provides:
+Provide:
 - Worker ID (N)
 - Project directory
 - Task name
@@ -31,6 +30,8 @@ Run these independently — do NOT trust the worker's reported results:
 npm test 2>&1 | tail -30          # fresh test run
 npm run build 2>&1 | tail -20     # fresh build
 ```
+
+For E2E: check `package.json` `scripts` for a Playwright-specific script (keys containing `e2e`, `playwright`, etc. — distinct from `npm test` which runs Vitest). Run it if present; skip only if none exists.
 
 For each acceptance criterion in the task:
 - Mark as VERIFIED (test exists and passes), PARTIAL (test exists but incomplete), or MISSING (no test)
@@ -63,7 +64,7 @@ Verdict: PASS | FAIL | INCOMPLETE
 
 ## Verdicts
 
-- **PASS**: All criteria VERIFIED, all E2E covered (if applicable), tests + build green → worker may call Architect
+- **PASS**: All criteria VERIFIED, all E2E covered (if applicable), tests + build green
 - **FAIL**: Tests or build failing → worker must fix before calling Architect
 - **INCOMPLETE**: Tests pass but criteria/E2E not fully covered → worker must add missing tests
 

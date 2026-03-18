@@ -1,6 +1,5 @@
 import path from 'path'
-import { readTasks } from '../core/state'
-import { resetExpiredLeases } from '../core/state'
+import { readTasks, resetExpiredLeases, resetStuckTasks } from '../core/state'
 import { sessionExists, createSession, splitPane, applyLayout } from '../core/tmux'
 import { launchWorkers } from './team'
 import { loadConfig } from '../core/config'
@@ -11,6 +10,12 @@ export function runRecover(projectDir: string): void {
   const expiredIds = resetExpiredLeases(projectDir)
   if (expiredIds.length > 0) {
     console.log(`[RECOVER] Reset ${expiredIds.length} expired lease(s): tasks ${expiredIds.join(', ')}`)
+  }
+
+  // Reset stuck tasks (in-progress but updated_at > 10 min ago)
+  const stuckIds = resetStuckTasks(projectDir)
+  if (stuckIds.length > 0) {
+    console.log(`[RECOVER] Reset ${stuckIds.length} stuck task(s): tasks ${stuckIds.join(', ')}`)
   }
 
   // Count pending tasks

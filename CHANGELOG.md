@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2026-03-19
+
+### Added
+- `ralph team N` now automatically adds a status `--watch` pane so stuck workers are detected without external monitoring
+- `ralph recover` and `ralph status --watch` now reset stuck tasks (workers with `updated_at` > 10 min) in addition to expired leases
+- `/api-integration-checklist` skill — 9-step external API integration checklist (CORS/preflight check, response + error format, security, proxy decision, pagination, rate limits, type safety, mock strategy, env vars). Called automatically by `/ralph-kage-bunshin-start` when user mentions an external API.
+
+### Changed
+- `/ralph-kage-bunshin-loop` — Verifier + Architect logic inlined directly into loop skill; workers no longer stop after sub-skill returns
+- `/ralph-kage-bunshin-verify` and `/ralph-kage-bunshin-architect` now documented as standalone manual-use tools, not automated pipeline steps
+- `/ralph-kage-bunshin-start` — runs `/api-integration-checklist` when external API is mentioned before confirming stack; references `vercel-react-best-practices` when React/Next.js is in the stack
+- README: How It Works, Agent Roles, Key Features, Worker Loop, and Skills table updated to reflect inline verify + architect
+
+### Fixed
+- Workers that finish all tasks but find others in-progress now call `ralph recover` before exiting, unblocking any stuck peers
+- All test descriptions translated to English (13 test files)
+- `Task` interface now includes optional `description` field — aligns type with skill requirement
+- `loop` skill: DoD checklist now set to `true` only after architect APPROVED, not before verification — fixes premature checklist write
+- `loop` skill: convergence step numbering corrected (was 1-7 with gap, now 1-6 sequential)
+- `verify` + `architect` skills: reframed as standalone manual-use tools (not auto-called by loop)
+- `loop` skill: external skill dependencies documented at top; E2E script detection clarified (Playwright vs Vitest)
+- `architect` skill: pre-existing `architect_review` field treated as "review independently" not "reject outright"
+- `claimTask`: worker ID now coerced to `Number` on write — prevents string/number type mismatch in tasks.json
+- `renewLease`, `resetStuckTasks`: worker ID comparison coerced to `Number` — consistent with claim behavior
+- `loop` skill: claim verification now explicitly requires numeric comparison (`Number(task.worker) === Number(workerId)`) and bans any file writes before verification passes
+- `loop` skill: lease renewal now requires calculated timestamp (`new Date(Date.now() + 5*60*1000).toISOString()`) — hand-typed ISO values prohibited
+- `/ralph-kage-bunshin-loop` — strengthened claim verification: mandatory 1-second wait + re-read + strict worker ID check before proceeding; workers that lose the race stop immediately instead of continuing in parallel
+- `/ralph-kage-bunshin-loop` — `renewLease` clarified: workers update `lease_expires_at` directly in `.ralph/tasks.json` (no CLI command needed)
+- `/ralph-kage-bunshin-loop` — `worker-N` substitution rule now explicitly stated at session start
+
 ## [0.1.3] - 2026-03-18
 
 ### Fixed

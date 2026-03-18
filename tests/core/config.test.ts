@@ -5,7 +5,7 @@ import fs from 'fs'
 vi.mock('fs')
 
 describe('config', () => {
-  it('config.json이 없으면 기본값을 반환한다', () => {
+  it('returns defaults when config.json does not exist', () => {
     vi.mocked(fs.existsSync).mockReturnValue(false)
     const config = loadConfig()
     expect(config.notifications.macos).toBe(true)
@@ -13,7 +13,7 @@ describe('config', () => {
     expect(config.notifications.slack_webhook).toBe('')
   })
 
-  it('config.json이 있으면 파싱해서 반환한다', () => {
+  it('parses and returns config when config.json exists', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
     vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
       notifications: { macos: false, slack_webhook: 'https://hooks.slack.com/test', discord_webhook: '' },

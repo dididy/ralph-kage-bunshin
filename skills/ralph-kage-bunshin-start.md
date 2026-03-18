@@ -60,6 +60,10 @@ Legend: ✓ = complete, ∙∙ = partial, ✗ = not started
 - "Do you need any external services (Auth, DB, payments, etc.)?"
 - "Do you need mobile support? Any performance requirements?"
 
+**If the user mentions any external API:** run `/api-integration-checklist` before confirming the stack. Record the CORS/proxy decision in SPEC.md `## External Dependencies`. Do not skip this — CORS failures discovered at runtime are not recoverable without an architecture change.
+
+**When React/Next.js is in the stack:** reference `vercel-react-best-practices` for data fetching patterns (Server Components vs client fetch, SWR/React Query, bundle optimization). Lock the chosen pattern in SPEC.md Tech Stack.
+
 **When stack choices arise, present options:**
 ```
 There are a few directions here:
@@ -203,22 +207,26 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 ```json
 {
   "tasks": [
-    { "id": 1, "name": "Project setup", "status": "pending", "worker": null },
-    { "id": 2, "name": "[task]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true },
-    { "id": 3, "name": "[task]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true },
-    { "id": 4, "name": "[task]", "status": "pending", "worker": null, "depends_on": [2, 3] }
+    { "id": 1, "name": "Project setup", "status": "pending", "worker": null, "description": "[what this task does]" },
+    { "id": 2, "name": "[task]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true, "description": "[what this task does, including any required steps]" },
+    { "id": 3, "name": "[task]", "status": "pending", "worker": null, "depends_on": [1], "isolated": true, "description": "[what this task does, including any required steps]" },
+    { "id": 4, "name": "[task]", "status": "pending", "worker": null, "depends_on": [2, 3], "description": "[what this task does]" }
   ]
 }
 ```
 
 **Task rules:**
-- `depends_on` tasks are only claimable after all listed tasks are `"converged"`
-- `isolated: true` on parallel tasks that may touch overlapping files
+- Every task **must** have a `description` field — a worker's only context is this description. Empty or missing descriptions are not allowed.
+- `depends_on` tasks are only claimable after all listed tasks are `"converged"`. Tasks with no `depends_on` are claimable immediately and run in parallel with each other.
+- `isolated: true` **must** be set on any task that runs in parallel with another task that touches the same files (src/, package.json, config files). When in doubt, set `isolated: true`. Omitting it on parallel tasks risks merge conflicts.
 - Each task completable in one focused session (~1-3 hours)
-- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that implements that feature. Never create a single "write all E2E tests" task at the end.
+- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that implements that feature. Include the assigned E2E scenario(s) in that task's `description`. Never create a single "write all E2E tests" task at the end.
 - **Task granularity**: if a feature is large, split into (a) data model + schema, (b) core logic, (c) API/UI layer. When unsure: split rather than merge.
 - Always include a setup task (id: 1) if the project needs initial scaffolding. All other tasks `depends_on: [1]`.
 - Max parallelism per wave determines the worker recommendation — not total task count.
+- **If a task involves reverse-engineering visual behavior from an existing site** (animations, transitions, UI cloning): the task `description` must explicitly list these steps in order: (1) capture reference recording/frames from the original site using `/transition-reverse-engineering` or `/ui-reverse-engineering`, (2) capture the same from our implementation, (3) compare side-by-side and fix all discrepancies. A worker cannot skip these steps even if an implementation already exists — "already implemented" is not grounds for skipping visual comparison.
+  - **Required description format** (copy and adapt): `"Steps: (1) Use /transition-reverse-engineering to capture reference recording/frames from [site] — dismiss any modals before recording, (2) capture the same from our implementation, (3) compare side-by-side and adjust timing/easing with measured values only. Repeat until 100% match. 'Already implemented' is not grounds for skipping visual comparison."`
+  - Use `/transition-reverse-engineering` for animation/transition timing, `/ui-reverse-engineering` for layout/interaction behavior
 
 ### `CLAUDE.md`
 ```markdown
@@ -245,8 +253,8 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 
 ## Convergence Condition
 When all DoD items above are satisfied:
-1. Call `/ralph-kage-bunshin-architect` with your worker ID, project directory, and task name
-2. Wait for APPROVED verdict before marking converged
+1. Run inline verification — re-run tests fresh, check every acceptance criterion and E2E scenario against SPEC.md
+2. Run inline architect review — read SPEC.md + source + tests, steelman before approving, write `converged: true` atomically into state.json and tasks.json if APPROVED
 3. If REJECTED: fix the gaps and repeat DoD checks
 ```
 

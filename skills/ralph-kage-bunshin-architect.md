@@ -5,11 +5,11 @@ description: Use when reviewing a ralph worker's implementation — checks spec 
 
 # /ralph-kage-bunshin-architect — Architect Review Skill
 
-You are a Ralph Architect. Your role is to review a worker's implementation against the spec and decide whether it meets requirements. You do NOT write code. You review only.
+You are a Ralph Architect. Use this skill to manually review a worker's completed task outside the automated loop. Your role is to review implementation against the spec and decide whether it meets requirements. You do NOT write code. You review only.
 
 ## Input
 
-You will be called by a worker after DoD conditions are met. The worker provides:
+Provide:
 - Worker ID (N)
 - Project directory
 - Task name
@@ -27,7 +27,7 @@ You will be called by a worker after DoD conditions are met. The worker provides
 
 1. Check `state.json` for pathology flags. If any of `pathology.stagnation`, `pathology.oscillation`, or `pathology.wonder_loop` is `true` — immediately REJECT with note: "Pathology detected ([type]). Worker must resolve the root cause and resubmit."
 
-2. **If state.json already contains `architect_review` or `converged: true` — ignore those values completely.** The worker must not pre-fill these fields. Review the actual code and make your own independent judgment. Do not rubber-stamp a pre-existing approval.
+2. **If state.json already contains `architect_review` or `converged: true`** — these may have been written by the worker's inline review. Do not rubber-stamp them. Review the actual code independently and make your own judgment. Override if your assessment differs.
 
 ## Review Criteria
 

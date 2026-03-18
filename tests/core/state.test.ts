@@ -15,23 +15,23 @@ describe('state', () => {
     fs.rmSync(tmpDir, { recursive: true })
   })
 
-  it('tasks.json이 없으면 빈 배열을 반환한다', () => {
+  it('returns an empty array when tasks.json does not exist', () => {
     const tasks = readTasks(tmpDir)
     expect(tasks).toEqual([])
   })
 
-  it('tasks.json을 읽고 파싱해서 반환한다', () => {
-    const data = { tasks: [{ id: 1, name: '테스트', status: 'pending', worker: null }] }
+  it('reads and parses tasks.json', () => {
+    const data = { tasks: [{ id: 1, name: 'test-task', status: 'pending', worker: null }] }
     fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
     fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
     const tasks = readTasks(tmpDir)
     expect(tasks).toHaveLength(1)
-    expect(tasks[0].name).toBe('테스트')
+    expect(tasks[0].name).toBe('test-task')
   })
 
-  it('WorkerState를 state.json에 저장한다', () => {
+  it('writes WorkerState to state.json', () => {
     const state = {
-      worker_id: 1, task: '테스트', generation: 0,
+      worker_id: 1, task: 'test-task', generation: 0,
       consecutive_failures: 0, last_results: [] as ('pass' | 'fail')[],
       pathology: { stagnation: false, oscillation: false, wonder_loop: false },
       dod_checklist: { npm_test: false, npm_build: false, tasks_complete: false },
@@ -44,9 +44,9 @@ describe('state', () => {
     expect(saved.worker_id).toBe(1)
   })
 
-  it('state.json을 읽고 WorkerState를 반환한다', () => {
+  it('reads state.json and returns WorkerState', () => {
     const state = {
-      worker_id: 2, task: '레시피', generation: 3,
+      worker_id: 2, task: 'recipe-task', generation: 3,
       consecutive_failures: 0, last_results: ['pass'] as ('pass' | 'fail')[],
       pathology: { stagnation: false, oscillation: false, wonder_loop: false },
       dod_checklist: { npm_test: true, npm_build: false, tasks_complete: false },
@@ -146,7 +146,7 @@ describe('state', () => {
   })
 
   describe('depends_on', () => {
-    it('getClaimableTasks는 depends_on이 없는 pending 태스크를 반환한다', () => {
+    it('getClaimableTasks returns pending tasks with no depends_on', () => {
       const data = {
         tasks: [
           { id: 1, name: 'setup', status: 'pending', worker: null },
@@ -160,7 +160,7 @@ describe('state', () => {
       expect(claimable[0].id).toBe(1)
     })
 
-    it('getClaimableTasks는 depends_on이 모두 converged면 포함한다', () => {
+    it('getClaimableTasks includes tasks whose depends_on are all converged', () => {
       const data = {
         tasks: [
           { id: 1, name: 'setup', status: 'converged', worker: 1 },
@@ -174,7 +174,7 @@ describe('state', () => {
       expect(claimable[0].id).toBe(2)
     })
 
-    it('claimTask는 depends_on이 아직 converged 아니면 클레임을 막는다', () => {
+    it('claimTask blocks claiming when depends_on tasks are not yet converged', () => {
       const data = {
         tasks: [
           { id: 1, name: 'setup', status: 'in-progress', worker: 1 },
@@ -185,12 +185,12 @@ describe('state', () => {
       fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
       claimTask(tmpDir, 2, 3)
       const tasks = readTasks(tmpDir)
-      // task 2는 여전히 pending — 의존성(task 1)이 in-progress라서 클레임 불가
+      // task 2 remains pending — dependency (task 1) is still in-progress
       expect(tasks[1].status).toBe('pending')
       expect(tasks[1].worker).toBeNull()
     })
 
-    it('claimTask는 depends_on이 모두 converged면 정상 클레임된다', () => {
+    it('claimTask succeeds when all depends_on tasks are converged', () => {
       const data = {
         tasks: [
           { id: 1, name: 'setup', status: 'converged', worker: 1 },
@@ -206,11 +206,11 @@ describe('state', () => {
     })
   })
 
-  it('updateTaskStatus가 해당 작업의 status만 변경한다', () => {
+  it('updateTaskStatus changes only the target task status', () => {
     const data = {
       tasks: [
-        { id: 1, name: '작업1', status: 'pending', worker: 1 },
-        { id: 2, name: '작업2', status: 'pending', worker: 2 },
+        { id: 1, name: 'task-1', status: 'pending', worker: 1 },
+        { id: 2, name: 'task-2', status: 'pending', worker: 2 },
       ]
     }
     fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })

@@ -33,10 +33,10 @@
 | **Task dependencies** | `depends_on` ensures correct ordering — workers wait automatically |
 | **Git worktrees** | `isolated: true` tasks run in dedicated branches, no file conflicts |
 | **Lease system** | 5-min leases prevent abandoned tasks from blocking progress |
-| **Agent pipeline** | Executor → Debugger → Verifier → Architect — each role clearly separated |
+| **Agent pipeline** | Worker → Debugger (on failure) → inline Verify → inline Architect review |
 | **Debugger agent** | Called on 3+ failures: diagnoses root cause, proposes ONE fix with file:line evidence |
-| **Verifier agent** | Independently re-runs tests and checks acceptance criteria before Architect |
-| **Architect review** | Critic-gate review against spec — steelmans before approving |
+| **Inline verification** | Worker re-runs tests fresh and checks every acceptance criterion before converging |
+| **Inline architect review** | Critic-gate review against spec — steelmans before approving, writes `converged: true` atomically |
 | **Worker mailbox** | File-based messaging between workers via `.ralph/mailbox/` |
 | **Pathology detection** | Stagnation, oscillation, wonder-loop — workers self-detect and exit cleanly |
 | **Auto-recovery** | `--watch` mode detects and recovers crashed workers automatically |
@@ -49,10 +49,10 @@
 
 1. **`/ralph-kage-bunshin-start`** — Dimension-based interview that generates `.ralph/SPEC.md`, `.ralph/tasks.json`, and `CLAUDE.md`
 2. **`ralph team N`** — Spawns N tmux panes, each running Claude with `/ralph-kage-bunshin-loop`
-3. **Worker loop (Executor)** — Claims the lowest-ID pending task, writes tests first, implements, checks DoD
+3. **Worker loop** — Claims the lowest-ID pending task, writes tests first, implements, checks DoD
 4. **Debugger gate** — On 3+ consecutive failures, `/ralph-kage-bunshin-debug` diagnoses root cause and proposes ONE fix
-5. **Verifier gate** — After DoD passes, `/ralph-kage-bunshin-verify` independently re-runs tests and checks all acceptance criteria
-6. **Architect gate** — `/ralph-kage-bunshin-architect` reviews against spec with Critic-style steelmanning. APPROVED writes `converged: true` atomically.
+5. **Verification (inline)** — Worker independently re-runs tests and checks all acceptance criteria against SPEC.md before proceeding
+6. **Architect review (inline)** — Worker performs Critic-gate review against spec with steelmanning. APPROVED writes `converged: true` atomically into `state.json` and `tasks.json`.
 7. **Lease system** — Tasks have a 5-minute lease. Crashed workers are auto-detected and tasks re-queued.
 8. **Auto-recovery** — `ralph status --watch` automatically calls `ralph recover` when expired leases are detected.
 
@@ -110,7 +110,7 @@ Each worker follows a strict TDD + multi-agent pipeline:
 ```
 claim task → write test (red) → implement (green) → refactor
   → 3 failures? → Debugger → fix → retry
-  → DoD pass → Verifier → Architect → converge → claim next task
+  → DoD pass → inline verify → inline architect review → converge → claim next task
 ```
 
 1. Claim lowest-ID pending task (with lease)
@@ -118,18 +118,18 @@ claim task → write test (red) → implement (green) → refactor
 3. Write failing test → implement → pass test
 4. On 3+ consecutive failures: call `/ralph-kage-bunshin-debug` for root-cause diagnosis
 5. Run DoD checks (`npm test`, `npm run build`, E2E)
-6. Call `/ralph-kage-bunshin-verify` — independent validation of all acceptance criteria
-7. Call `/ralph-kage-bunshin-architect` for final review
-8. On APPROVED: converge, send mailbox message, claim next task
+6. **Inline verification** — re-run tests fresh, check every acceptance criterion and E2E scenario against SPEC.md
+7. **Inline architect review** — Critic-gate review against spec with steelmanning; write `converged: true` atomically on APPROVED
+8. On APPROVED: send mailbox message, claim next task
 
 ### Agent Roles
 
 | Agent | Skill | Triggered by | Role |
 |-------|-------|-------------|------|
-| **Executor** | `/ralph-kage-bunshin-loop` | `ralph team N` | Implement, TDD, DoD checks |
+| **Worker** | `/ralph-kage-bunshin-loop` | `ralph team N` | Implement, TDD, DoD checks, inline verify + architect review |
 | **Debugger** | `/ralph-kage-bunshin-debug` | 3+ consecutive failures | Root-cause diagnosis, ONE fix proposal |
-| **Verifier** | `/ralph-kage-bunshin-verify` | DoD pass | Independent test re-run, criteria check |
-| **Architect** | `/ralph-kage-bunshin-architect` | Verifier PASS | Spec compliance + Critic gate |
+
+> **Note:** Verifier and Architect logic run **inline** inside the worker loop — no separate skill calls. The `/ralph-kage-bunshin-verify` and `/ralph-kage-bunshin-architect` skills exist as standalone tools for manual use outside the automated loop.
 
 ### Architect Review
 
@@ -197,15 +197,16 @@ ralph profile apply <name>    Apply a profile to the current project
 ralph install-skills
 ```
 
-Installs five skills to `~/.claude/skills/`:
+Installs six skills to `~/.claude/skills/`:
 
 | File | Slash Command | Role |
 |------|--------------|------|
 | `ralph-kage-bunshin-start.md` | `/ralph-kage-bunshin-start` | Dimension-based project setup interview → SPEC.md + tasks.json + CLAUDE.md |
-| `ralph-kage-bunshin-loop.md` | `/ralph-kage-bunshin-loop` | Executor: claim → TDD → DoD → Verifier → Architect → converge |
+| `ralph-kage-bunshin-loop.md` | `/ralph-kage-bunshin-loop` | Worker: claim → TDD → DoD → inline verify → inline architect review → converge |
 | `ralph-kage-bunshin-debug.md` | `/ralph-kage-bunshin-debug` | Debugger: root-cause diagnosis on 3+ failures, ONE fix proposal |
-| `ralph-kage-bunshin-verify.md` | `/ralph-kage-bunshin-verify` | Verifier: independent DoD validation before Architect |
-| `ralph-kage-bunshin-architect.md` | `/ralph-kage-bunshin-architect` | Architect: Critic-gate review, atomic convergence writes |
+| `ralph-kage-bunshin-verify.md` | `/ralph-kage-bunshin-verify` | Verifier: standalone manual-use tool — independent DoD validation |
+| `ralph-kage-bunshin-architect.md` | `/ralph-kage-bunshin-architect` | Architect: standalone manual-use tool — Critic-gate review, atomic convergence writes |
+| `api-integration-checklist.md` | `/api-integration-checklist` | CORS/proxy decision checklist for external API integrations — called by `/ralph-kage-bunshin-start` when user mentions an external API |
 
 ### `/ralph-kage-bunshin-start` Design
 
