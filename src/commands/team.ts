@@ -1,21 +1,34 @@
 import path from 'path'
 import fs from 'fs'
-import { createSession, splitPane, applyLayout, sendKeys, sessionExists, killSession } from '../core/tmux'
+import { createSession, splitPane, applyLayout, sendKeys, sessionExists, killSession, listPanes } from '../core/tmux'
 import { writeWorkerState } from '../core/state'
 import { startCaffeinate } from '../core/caffeinate'
 import { loadConfig } from '../core/config'
-
-const shellQuote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`
+import { shellQuote } from '../core/shell'
 
 export function launchWorkers(
   sessionName: string,
   workerIds: number[],
   projectDir: string,
 ): void {
+  const panes = listPanes(sessionName)
+  if (panes.length < workerIds.length) {
+    throw new Error(`Not enough panes (${panes.length}) for workers (${workerIds.length})`)
+  }
+  launchWorkersOnPanes(sessionName, workerIds, panes.slice(0, workerIds.length), projectDir)
+}
+
+export function launchWorkersOnPanes(
+  sessionName: string,
+  workerIds: number[],
+  paneIndices: number[],
+  projectDir: string,
+): void {
   const envPath = path.join(projectDir, '.ralph', '.env')
 
   for (let i = 0; i < workerIds.length; i++) {
     const workerId = workerIds[i]
+    const paneIdx = paneIndices[i]
 
     writeWorkerState(projectDir, workerId, {
       worker_id: workerId,
@@ -30,16 +43,16 @@ export function launchWorkers(
       updated_at: new Date().toISOString(),
     })
 
-    sendKeys(sessionName, i, `cd ${shellQuote(projectDir)}`)
+    sendKeys(sessionName, paneIdx, `cd ${shellQuote(projectDir)}`)
 
     if (fs.existsSync(envPath)) {
-      sendKeys(sessionName, i, `source ${shellQuote(envPath)}`)
+      sendKeys(sessionName, paneIdx, `source ${shellQuote(envPath)}`)
     }
 
     // Inject worker ID and project dir so the worker can identify itself and create worktrees
-    sendKeys(sessionName, i, `export RALPH_WORKER_ID=${workerId}`)
-    sendKeys(sessionName, i, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
-    sendKeys(sessionName, i, `claude --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
+    sendKeys(sessionName, paneIdx, `export RALPH_WORKER_ID='${workerId}'`)
+    sendKeys(sessionName, paneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
+    sendKeys(sessionName, paneIdx, `claude --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
   }
 }
 
@@ -57,18 +70,28 @@ export function runTeam(workerCount: number, projectDir: string): void {
   }
   createSession(sessionName)
 
-  for (let i = 1; i < workerCount; i++) {
+  // Create workerCount + 1 (status) panes total — session starts with 1
+  const totalPanes = workerCount + 1
+  for (let i = 1; i < totalPanes; i++) {
     splitPane(sessionName)
-    applyLayout(sessionName, 'tiled')
+  }
+  applyLayout(sessionName, 'tiled')
+
+  // Confirm actual pane indices after layout
+  const panes = listPanes(sessionName)
+  if (panes.length < workerCount + 1) {
+    throw new Error(`Expected ${workerCount + 1} panes after layout, got ${panes.length}`)
   }
 
-  const workerIds = Array.from({ length: workerCount }, (_, i) => i + 1)
-  launchWorkers(sessionName, workerIds, projectDir)
+  // Worker panes: first workerCount panes
+  const workerPanes = panes.slice(0, workerCount)
+  // Status pane: last pane
+  const statusPaneIdx = panes[panes.length - 1]
 
-  // Add a status --watch pane
-  splitPane(sessionName)
-  applyLayout(sessionName, 'tiled')
-  const statusPaneIdx = workerCount
+  const workerIds = Array.from({ length: workerCount }, (_, i) => i + 1)
+  launchWorkersOnPanes(sessionName, workerIds, workerPanes, projectDir)
+
+  // Status pane
   sendKeys(sessionName, statusPaneIdx, `cd ${shellQuote(projectDir)}`)
   sendKeys(sessionName, statusPaneIdx, `ralph status --watch`)
 

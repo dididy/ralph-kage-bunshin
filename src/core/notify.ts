@@ -7,8 +7,17 @@ interface NotifyOptions {
   config: RalphConfig
 }
 
+function isValidHttpsUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function postWebhook(url: string, body: string): void {
-  if (!url.startsWith('https://')) return
+  if (!isValidHttpsUrl(url)) return
   try {
     execFileSync('curl', [
       '-s', '--max-time', '5',

@@ -49,7 +49,9 @@ function writeEnv(projectDir: string, env: Record<string, string>): void {
   const dir = path.join(projectDir, '.ralph')
   fs.mkdirSync(dir, { recursive: true })
   const content = Object.entries(env).map(([k, v]) => formatEnvLine(k, v)).join('\n') + '\n'
-  fs.writeFileSync(getEnvPath(projectDir), content, { mode: 0o600 })
+  const envPath = getEnvPath(projectDir)
+  fs.writeFileSync(envPath, content, { mode: 0o600 })
+  fs.chmodSync(envPath, 0o600)
   ensureGitignored(projectDir)
 }
 

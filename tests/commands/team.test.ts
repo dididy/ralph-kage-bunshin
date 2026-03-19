@@ -19,6 +19,7 @@ describe('ralph team', () => {
     vi.mocked(tmux.splitPane).mockReturnValue(undefined)
     vi.mocked(tmux.applyLayout).mockReturnValue(undefined)
     vi.mocked(tmux.sendKeys).mockReturnValue(undefined)
+    vi.mocked(tmux.listPanes).mockReturnValue([0, 1, 2, 3])
     vi.mocked(caffeinate.startCaffeinate).mockReturnValue(undefined)
     vi.mocked(state.writeWorkerState).mockReturnValue(undefined)
     vi.mocked(configModule.loadConfig).mockReturnValue({
@@ -43,9 +44,9 @@ describe('ralph team', () => {
   it('injects RALPH_WORKER_ID env var into each worker pane', () => {
     runTeam(3, '/tmp/test-project')
     const allCalls = vi.mocked(tmux.sendKeys).mock.calls.map(c => c[2])
-    expect(allCalls).toContain('export RALPH_WORKER_ID=1')
-    expect(allCalls).toContain('export RALPH_WORKER_ID=2')
-    expect(allCalls).toContain('export RALPH_WORKER_ID=3')
+    expect(allCalls).toContain("export RALPH_WORKER_ID='1'")
+    expect(allCalls).toContain("export RALPH_WORKER_ID='2'")
+    expect(allCalls).toContain("export RALPH_WORKER_ID='3'")
   })
 
   it('does not pre-assign workers in tasks.json', () => {

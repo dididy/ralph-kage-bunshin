@@ -47,6 +47,8 @@ export interface RalphConfig {
     discord_webhook: string
   }
   caffeinate: boolean
+  leaseDurationMs?: number
+  stuckThresholdMs?: number
 }
 
 export interface Profile {

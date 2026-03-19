@@ -30,6 +30,24 @@ The worker provides:
 4. Form ONE hypothesis with evidence (not speculation)
 5. Propose the smallest possible fix (<5% of affected files)
 
+**For UI runtime bugs** (white flash, blank screen, wrong z-index, layout jump) where there is no test error output — use browser instrumentation instead of guessing:
+```bash
+agent-browser eval "(() => {
+  const panes = document.querySelectorAll('[class*=pane], [class*=slot], [class*=old]')
+  return JSON.stringify([...panes].map(el => {
+    const s = getComputedStyle(el)
+    return { cls: el.className, opacity: s.opacity, visibility: s.visibility, zIndex: s.zIndex, position: s.position, height: el.offsetHeight, animName: s.animationName }
+  }))
+})()"
+```
+Capture before/during/after the trigger. The diff between states is the evidence.
+
+Also check re-render side effects — if a callback prop is in `useEffect` deps, any re-render recreates it and re-fires the effect:
+```bash
+# Look for useEffect with function props in deps (adjust glob to your framework/language)
+grep -rn "useEffect\|useCallback" src/ --include="*.tsx" --include="*.ts" --include="*.jsx" --include="*.js" | head -30
+```
+
 **Never:**
 - Suggest null checks as a fix without finding why something is null
 - Propose multiple fixes simultaneously

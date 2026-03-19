@@ -5,13 +5,30 @@ import type { Profile } from '../types'
 
 const PROFILES_DIR = path.join(os.homedir(), '.ralph', 'profiles')
 
+function isValidProfile(p: unknown): p is Profile {
+  if (typeof p !== 'object' || p === null) return false
+  const obj = p as Record<string, unknown>
+  return (
+    typeof obj.name === 'string' &&
+    typeof obj.description === 'string' &&
+    typeof obj.stack === 'object' && obj.stack !== null && !Array.isArray(obj.stack) &&
+    Array.isArray(obj.claude_md_additions) && (obj.claude_md_additions as unknown[]).every(r => typeof r === 'string') &&
+    Array.isArray(obj.initial_structure) && (obj.initial_structure as unknown[]).every(d => typeof d === 'string')
+  )
+}
+
 export function listProfiles(): Profile[] {
   if (!fs.existsSync(PROFILES_DIR)) return []
   return fs.readdirSync(PROFILES_DIR)
     .filter(f => f.endsWith('.json'))
     .map(f => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(PROFILES_DIR, f), 'utf-8')) as Profile
+        const parsed: unknown = JSON.parse(fs.readFileSync(path.join(PROFILES_DIR, f), 'utf-8'))
+        if (!isValidProfile(parsed)) {
+          console.warn(`[WARN] skipping invalid profile ${f}`)
+          return null
+        }
+        return parsed
       } catch {
         console.warn(`[WARN] could not parse profile ${f}`)
         return null
@@ -38,7 +55,7 @@ export function applyProfile(profileName: string, projectDir: string): void {
       typeof parsed?.description !== 'string' ||
       typeof parsed?.stack !== 'object' || parsed?.stack === null || Array.isArray(parsed?.stack) ||
       !Array.isArray(parsed?.claude_md_additions) || !parsed.claude_md_additions.every((r: unknown) => typeof r === 'string') ||
-      !Array.isArray(parsed?.initial_structure)
+      !Array.isArray(parsed?.initial_structure) || !parsed.initial_structure.every((d: unknown) => typeof d === 'string')
     ) {
       throw new Error('missing required fields')
     }
@@ -49,6 +66,9 @@ export function applyProfile(profileName: string, projectDir: string): void {
 
   const resolvedProject = path.resolve(projectDir)
   for (const dir of profile.initial_structure) {
+    if (dir.trim() === '') {
+      throw new Error(`Invalid directory in profile: empty string`)
+    }
     const resolved = path.resolve(projectDir, dir)
     const rel = path.relative(resolvedProject, resolved)
     if (rel.startsWith('..') || path.isAbsolute(rel)) {

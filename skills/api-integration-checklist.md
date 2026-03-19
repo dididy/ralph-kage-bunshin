@@ -7,6 +7,39 @@ description: Use when a project will call external APIs from the browser — che
 
 Run this checklist before finalising architecture for any project that fetches data from a third-party API. Catches integration blockers at design time instead of runtime.
 
+## Step 0: Verify endpoint documentation against live API
+
+Before writing any code, confirm that every endpoint in the API docs (or `api.md`) actually works as documented. Documentation errors are the #1 source of wasted implementation cycles.
+
+```bash
+# For each documented endpoint, run a real curl and confirm:
+# 1. Status 200 (or expected success code)
+# 2. Parameters match exactly (name, casing, required vs optional)
+# 3. Response shape matches documented schema
+
+# Example — compare documented ?id= vs actual parameter name:
+curl -si "https://api.example.com/search?id=abc123" | head -5
+# vs
+curl -si "https://api.example.com/search?i=abc123" | head -5
+```
+
+**Checklist — for each endpoint:**
+
+| Check | How to verify |
+|-------|---------------|
+| URL path is correct | 200 vs 404 |
+| Query parameter names are exact | Try the documented names — wrong names silently return wrong data or errors |
+| Required parameters are identified | Omit each one — confirm the error |
+| Response JSON keys match documented schema | `jq 'keys'` on the response |
+| Any hidden required parameters (e.g. `nsfw=1`, `n=300`) | Compare different parameter combinations |
+
+**If docs diverge from live API:**
+- Update `api.md` / docs immediately — **never guess, never assume the docs are right**
+- Record the correct parameters in `SPEC.md → External Dependencies`
+- Do not start implementation until all endpoints are verified
+
+> This step exists because undocumented or mis-documented API parameters (e.g. `?id=` when the actual param is `?i=`) will cause ExternalServiceBlock failures that workers cannot recover from without re-verification.
+
 ## Step 1: CORS check
 
 ```bash
@@ -179,6 +212,7 @@ Rules:
 | Skipping CORS check, discovering it at runtime | Always run Step 1 before writing SPEC |
 | "It worked in Postman / curl" | Both ignore CORS — browsers enforce it |
 | Session-cookie API, cookies not forwarded through proxy | `credentials: 'include'` + `changeOrigin: true` + forward `Cookie` header |
+| Trusting docs without curl-verifying parameters | Run Step 0 — parameter names in docs are often wrong (`?id=` vs `?i=`) |
 | Parsing undocumented API without verifying format | curl the endpoint first, write a parser unit test |
 | Tests hitting the live API | No CORS or auth = mock is mandatory |
 | `any` typed API response | Use `unknown` + zod — API shape changes break silently with `any` |

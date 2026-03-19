@@ -220,13 +220,11 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 - `depends_on` tasks are only claimable after all listed tasks are `"converged"`. Tasks with no `depends_on` are claimable immediately and run in parallel with each other.
 - `isolated: true` **must** be set on any task that runs in parallel with another task that touches the same files (src/, package.json, config files). When in doubt, set `isolated: true`. Omitting it on parallel tasks risks merge conflicts.
 - Each task completable in one focused session (~1-3 hours)
-- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that implements that feature. Include the assigned E2E scenario(s) in that task's `description`. Never create a single "write all E2E tests" task at the end.
+- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that makes it first runnable end-to-end. Include the assigned E2E scenario(s) in that task's `description`. Never create a single "write all E2E tests" task at the end.
 - **Task granularity**: if a feature is large, split into (a) data model + schema, (b) core logic, (c) API/UI layer. When unsure: split rather than merge.
 - Always include a setup task (id: 1) if the project needs initial scaffolding. All other tasks `depends_on: [1]`.
-- Max parallelism per wave determines the worker recommendation — not total task count.
-- **If a task involves reverse-engineering visual behavior from an existing site** (animations, transitions, UI cloning): the task `description` must explicitly list these steps in order: (1) capture reference recording/frames from the original site using `/transition-reverse-engineering` or `/ui-reverse-engineering`, (2) capture the same from our implementation, (3) compare side-by-side and fix all discrepancies. A worker cannot skip these steps even if an implementation already exists — "already implemented" is not grounds for skipping visual comparison.
-  - **Required description format** (copy and adapt): `"Steps: (1) Use /transition-reverse-engineering to capture reference recording/frames from [site] — dismiss any modals before recording, (2) capture the same from our implementation, (3) compare side-by-side and adjust timing/easing with measured values only. Repeat until 100% match. 'Already implemented' is not grounds for skipping visual comparison."`
-  - Use `/transition-reverse-engineering` for animation/transition timing, `/ui-reverse-engineering` for layout/interaction behavior
+- A **wave** is a set of tasks that can start in parallel once their `depends_on` tasks are all converged. Waves are sequential — wave 2 starts after wave 1 finishes. Worker recommendation = max tasks in any single wave. Example: wave 1 has 1 task, wave 2 has 2 tasks → max parallel = 2 → `ralph team 2`.
+- **If a task involves reverse-engineering visual behavior from an existing site** (animations, transitions, UI cloning): include `/transition-reverse-engineering` or `/ui-reverse-engineering` in the task `description` — the worker will invoke the skill, which contains the full procedure
 
 ### `CLAUDE.md`
 ```markdown
@@ -237,7 +235,7 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 - Every commit must pass: `tsc --noEmit` + ESLint + `npm test`
 - Never disable or delete tests to make them pass
 - Do not expand scope beyond .ralph/SPEC.md
-- On external service failure: mock it and keep going — never stop
+- On external service failure: try direct fetch → proxy → mock fallback in order. Never stop — mock is last resort, not first.
 - When stuck: break into smaller pieces, max 3 attempts per approach
 
 ## Testing
@@ -245,17 +243,28 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 - E2E: Playwright (`npm run test:e2e`)
 - Write Playwright tests for any user-facing flow listed in SPEC.md E2E Test Scenarios
 
+## Code Correctness Rules
+These apply to every line of code, regardless of language or framework:
+- Values passed to dependencies must be what they claim — stable where stability is assumed, fresh where freshness is required. A value created inside a hot path and passed as if stable is a bug.
+- Every async operation that writes to shared state must be cancellable. If the owner is torn down before completion, the write must be a no-op (use cancelled flag or AbortController).
+- Every boolean/state that gates UI visibility must reach the correct value on the happy path AND on error/empty paths. Trace all code paths before shipping.
+
 ## Definition of Done
 - [ ] `npm test` passes (all Vitest tests green)
 - [ ] `npm run build` has no errors
-- [ ] E2E scenarios in SPEC.md covered by Playwright tests (if applicable)
+- [ ] E2E scenarios in SPEC.md covered by Playwright tests
 - [ ] Assigned task complete per .ralph/SPEC.md done criteria
 
 ## Convergence Condition
-When all DoD items above are satisfied:
-1. Run inline verification — re-run tests fresh, check every acceptance criterion and E2E scenario against SPEC.md
-2. Run inline architect review — read SPEC.md + source + tests, steelman before approving, write `converged: true` atomically into state.json and tasks.json if APPROVED
-3. If REJECTED: fix the gaps and repeat DoD checks
+When all DoD items above are satisfied, run two phases:
+
+**Phase 1 — Inline Verification:**
+Re-run tests fresh, mark each acceptance criterion as VERIFIED/PARTIAL/MISSING, mark each E2E scenario as COVERED/MISSING. Write `dod_checklist` to state.json.
+
+**Phase 2 — Inline Architect Review (independent self-audit):**
+Read SPEC.md + source + tests as if seeing them for the first time. Apply Code Correctness Rules to each file touched. Steelman the rejection. Write `converged: true` and `architect_review: { status: "approved" }` atomically into state.json and tasks.json only if no gaps found.
+
+If REJECTED: fix gaps, repeat from Phase 1.
 ```
 
 Write the files, then do NOT run `ralph team` automatically. Print this and stop:

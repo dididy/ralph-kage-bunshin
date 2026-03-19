@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5] - 2026-03-19
+
+### Added
+- `/api-integration-checklist` — Step 0: verify every documented endpoint with real curl before writing any code; catches mis-documented parameter names (e.g. `?id=` vs `?i=`) before implementation starts
+- `install-skills` — now also installs `dididy/ui-skills` alongside `dididy/e2e-skills`
+- `install-skills` — overwrites existing skills by default (no prompt); use `--no-overwrite` to skip existing files
+
+### Fixed
+- `ralph team N` — status pane now uses `listPanes()` to resolve actual last pane index after `applyLayout('tiled')` reorders panes; previously `ralph status --watch` was sent to wrong pane and never ran
+- `ralph team N` — `applyLayout('tiled')` now called once after all worker splits instead of after each split; eliminates pane index drift
+- `ralph team N` — `launchWorkers` now throws if pane count is less than worker count instead of silently sending keys to `undefined`
+- `ralph team N` — `runTeam` now throws if tmux reports fewer panes than expected after layout, preventing `statusPaneIdx` from being `undefined`
+- Robustness: `readTasks` now validates `task.name` is a string in addition to `id`, `status`, `worker`, and `depends_on`
+- Robustness: `profile.apply` now rejects empty strings in `initial_structure` (previously resolved to project root silently)
+- Robustness: `profile.list` now validates profile structure before returning; malformed profile files are skipped with a warning instead of being cast blindly
+- Robustness: `mailbox.listMessages` now validates each message against `MailboxMessage` schema before use; invalid files are skipped with a warning
+- Robustness: `recover.existingWorkerIds` filter uses `typeof w === 'number'` instead of `w !== null` — prevents NaN from corrupted worker fields propagating into `Math.max`
+- Robustness: `findRecyclablePanes` returns early if session has fewer than 2 panes
+- `ralph recover` — recovered workers now spawn in the **original session** by recycling idle (converged + no active task) panes instead of creating a separate `-recover` session; active panes are never killed
+- `ralph recover` — worker-to-pane mapping now uses tasks.json worker IDs instead of fragile `paneIdx + 1` arithmetic that breaks after pane reordering
+- `ralph status --watch` — `--watch <n>` now exits with an error if `n` is not a positive integer instead of silently defaulting to 5
+- `install-skills` — uses `fileURLToPath()` for portable package root resolution instead of raw URL pathname (fixes edge cases on Windows)
+- Security: `shellQuote` extracted to shared utility (`src/core/shell.ts`); no more duplication between `team` and `recover`
+- Security: webhook URLs validated with `new URL()` parser instead of `startsWith('https://')`; malformed URLs are rejected
+- Security: `.ralph/.env` file permissions enforced with `chmodSync(0o600)` after every write, not just on creation
+- Robustness: `readTasks` and `readWorkerState` now validate JSON structure after parsing; malformed state files return `null` instead of crashing downstream
+- Robustness: `getClaimableTasks` and `claimTask` warn when `depends_on` references a non-existent task ID
+- Robustness: `Math.max` spread on empty workers array replaced with explicit length check
+- Configurable: `leaseDurationMs` and `stuckThresholdMs` now readable from `~/.ralph/config.json`; hard-coded constants remain as defaults
+- Mailbox: `pruneMailbox()` added — deletes `.json.read` files older than 7 days; called automatically by `ralph status --watch`
+- `LICENSE` replaced with canonical Apache 2.0 text so GitHub correctly detects the license (was showing "Other")
+
+### Changed
+- `/ralph-kage-bunshin-loop` — UI copy and API verification procedures removed; loop now delegates to `/ui-reverse-engineering`, `/transition-reverse-engineering`, `/api-integration-checklist` respectively — each skill owns its own procedure
+- `/ralph-kage-bunshin-start` — reverse-engineering task description format rule simplified; worker just invokes the skill, which contains the full procedure
+- `/ralph-kage-bunshin-loop` — mailbox now supports `broadcast` type: critical mid-task discoveries (wrong API params, broken docs, env issues) are written immediately as broadcast messages, not deferred to `task_complete`
+- `/ralph-kage-bunshin-loop` — mailbox read logic: skip `.read` files explicitly; `broadcast` messages applied immediately before related work begins
+- `/ralph-kage-bunshin-loop` — `api.md` existing is not grounds for skipping Step 0 curl verification; always re-verify parameter names/shapes before writing API client code
+- `/ralph-kage-bunshin-start` — worker recommendation formula clarified: `max tasks in parallel across all waves = recommended workers` (previously over-counted by 1 in some cases)
+- `/ralph-kage-bunshin-loop` — environment-level gotchas now recorded immediately to `CLAUDE.md` under `## Environment Notes` when discovered, not at converge time
+- `/ralph-kage-bunshin-loop` — after claiming, worker verifies expected project files exist before proceeding; setup task marked `converged` may have run in a different worktree
+- `/ralph-kage-bunshin-loop` — mailbox `task_complete` with no `learnings` flagged as protocol violation; worker falls back to sender's PROGRESS.md
+- `/ralph-kage-bunshin-loop` — `used_skills` field added to PROGRESS.md generation format
+- `/ralph-kage-bunshin-loop` — DoD now re-reads `tasks.json` first; stops if another worker already converged the task
+- `/ralph-kage-bunshin-loop` — architect review time-boxed to 10 minutes; timeout treated as PATHOLOGY
+- `/ralph-kage-bunshin-loop` — ExternalServiceBlock pathology: 3+ `fail:external_service` → switch approach ladder (direct → Vite proxy → server-side proxy → mock fallback), record in `approach_history`
+- `/ralph-kage-bunshin-loop` — `last_results` supports `'fail:external_service'` entry type
+- `/ralph-kage-bunshin-start` — all tasks require `description` field; empty or missing not allowed
+- `/ralph-kage-bunshin-start` — `isolated: true` rule clarified: set on any parallel task touching shared files; when in doubt, set it
+- `/ralph-kage-bunshin-start` — E2E scenarios distributed across tasks and included in each task's `description`; single end-of-project E2E task not allowed
+- `/ralph-kage-bunshin-start` — reverse-engineering tasks require explicit step format in `description`; "already implemented" is not grounds for skipping visual comparison
+
 ## [0.1.4] - 2026-03-19
 
 ### Added

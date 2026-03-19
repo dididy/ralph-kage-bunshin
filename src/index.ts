@@ -1,3 +1,4 @@
+import path from 'path'
 import { Command } from 'commander'
 import { stopCaffeinate } from './core/caffeinate'
 import { runTeam } from './commands/team'
@@ -50,14 +51,20 @@ program
       return
     }
     if (opts.watch !== undefined) {
-      const interval = opts.watch === true ? 5 : parseInt(opts.watch as string, 10) || 5
+      const rawInterval = opts.watch === true ? 5 : parseInt(opts.watch as string, 10)
+      if (isNaN(rawInterval) || rawInterval < 1) {
+        console.error('Error: --watch interval must be a positive integer (seconds)')
+        process.exit(1)
+      }
+      const interval = rawInterval
       const autoRecover = opts.recover !== false
       const notifiedConverged = new Set<number>()
       const notifiedPathology = new Set<number>()
-      printStatus(cwd, notifiedConverged, notifiedPathology, autoRecover)
+      const sessionName = `ralph-${path.basename(cwd).replace(/[^A-Za-z0-9_-]/g, '_')}`
+      printStatus(cwd, notifiedConverged, notifiedPathology, autoRecover, sessionName)
       const intervalId = setInterval(() => {
         console.clear()
-        printStatus(cwd, notifiedConverged, notifiedPathology, autoRecover)
+        printStatus(cwd, notifiedConverged, notifiedPathology, autoRecover, sessionName)
       }, interval * 1000)
       process.on('SIGINT', () => { clearInterval(intervalId); stopCaffeinate(); process.exit(0) })
     } else {
@@ -145,9 +152,9 @@ secretsCmd
 program
   .command('install-skills')
   .description('Copy skill files to ~/.claude/skills/')
-  .option('-f, --force', 'Overwrite existing files without prompting')
-  .action(async (opts: { force?: boolean }) => {
-    await installSkills({ force: opts.force ?? false })
+  .option('--no-overwrite', 'Skip existing files instead of overwriting')
+  .action(async (opts: { overwrite?: boolean }) => {
+    await installSkills({ noOverwrite: opts.overwrite === false })
   })
 
 program.parse()

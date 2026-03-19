@@ -23,6 +23,8 @@ function isValidConfig(c: unknown): c is RalphConfig {
   if (typeof n.macos !== 'boolean') return false
   if (typeof n.slack_webhook !== 'string') return false
   if (typeof n.discord_webhook !== 'string') return false
+  if ('leaseDurationMs' in obj && typeof obj.leaseDurationMs !== 'number') return false
+  if ('stuckThresholdMs' in obj && typeof obj.stuckThresholdMs !== 'number') return false
   return true
 }
 
@@ -42,6 +44,9 @@ export function loadConfig(): RalphConfig {
 }
 
 export function saveConfig(config: RalphConfig): void {
+  if (!isValidConfig(config)) {
+    throw new Error('Invalid config object')
+  }
   const dir = path.join(os.homedir(), '.ralph')
   fs.mkdirSync(dir, { recursive: true })
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2))

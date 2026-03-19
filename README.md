@@ -32,14 +32,15 @@
 | **Parallel workers** | N workers claim and complete tasks independently in tmux panes |
 | **Task dependencies** | `depends_on` ensures correct ordering — workers wait automatically |
 | **Git worktrees** | `isolated: true` tasks run in dedicated branches, no file conflicts |
-| **Lease system** | 5-min leases prevent abandoned tasks from blocking progress |
+| **Lease system** | Configurable leases (default 5 min) prevent abandoned tasks from blocking progress |
 | **Agent pipeline** | Worker → Debugger (on failure) → inline Verify → inline Architect review |
 | **Debugger agent** | Called on 3+ failures: diagnoses root cause, proposes ONE fix with file:line evidence |
 | **Inline verification** | Worker re-runs tests fresh and checks every acceptance criterion before converging |
 | **Inline architect review** | Critic-gate review against spec — steelmans before approving, writes `converged: true` atomically |
-| **Worker mailbox** | File-based messaging between workers via `.ralph/mailbox/` |
-| **Pathology detection** | Stagnation, oscillation, wonder-loop — workers self-detect and exit cleanly |
-| **Auto-recovery** | `--watch` mode detects and recovers crashed workers automatically |
+| **Worker mailbox** | File-based messaging between workers via `.ralph/mailbox/`; `learnings` from completed tasks broadcast to all workers |
+| **Environment notes** | Workers record env-level gotchas (CLI quirks, missing files) to `CLAUDE.md` immediately — shared across all workers and sessions |
+| **Pathology detection** | Stagnation, oscillation, wonder-loop, external-service-block — workers self-detect and exit cleanly |
+| **Auto-recovery** | `--watch` mode detects crashed workers and recovers them in the original session by recycling idle panes |
 | **Secrets** | `.ralph/.env` with `0600` permissions, auto-sourced on worker startup |
 | **Profiles** | Reusable config presets via `~/.ralph/profiles/` |
 
@@ -53,8 +54,8 @@
 4. **Debugger gate** — On 3+ consecutive failures, `/ralph-kage-bunshin-debug` diagnoses root cause and proposes ONE fix
 5. **Verification (inline)** — Worker independently re-runs tests and checks all acceptance criteria against SPEC.md before proceeding
 6. **Architect review (inline)** — Worker performs Critic-gate review against spec with steelmanning. APPROVED writes `converged: true` atomically into `state.json` and `tasks.json`.
-7. **Lease system** — Tasks have a 5-minute lease. Crashed workers are auto-detected and tasks re-queued.
-8. **Auto-recovery** — `ralph status --watch` automatically calls `ralph recover` when expired leases are detected.
+7. **Lease system** — Tasks have a configurable lease (default 5 min). Crashed workers are auto-detected and tasks re-queued.
+8. **Auto-recovery** — `ralph status --watch` automatically calls `ralph recover` when expired leases or stuck workers are detected. Recovered workers spawn in the original session by recycling idle (converged) panes — no separate recover session created.
 
 ---
 
@@ -156,6 +157,7 @@ The architect reads `.ralph/SPEC.md` and steelmans the implementation before app
 | Stagnation | 3+ consecutive failures | Call Debugger → apply fix → if still failing, break into smaller pieces |
 | Oscillation | `fail,pass,fail,pass` in last 4 results | Lock decision in CLAUDE.md |
 | WonderLoop | Same approach tried 3+ times | Choose different method |
+| ExternalServiceBlock | 3+ consecutive `fail:external_service` | Switch approach: direct fetch → Vite proxy → server-side proxy → mock fallback; record in `approach_history` |
 
 ### Secrets
 
@@ -178,8 +180,8 @@ ralph status --watch [N]    Live dashboard, refresh every N seconds (default: 5)
 ralph status --no-recover   Watch mode without auto-recovery
 ralph status --messages     Show mailbox messages
 
-ralph install-skills          Copy skills to ~/.claude/skills/
-ralph install-skills --force  Overwrite without prompting
+ralph install-skills               Copy skills to ~/.claude/skills/ (overwrites by default)
+ralph install-skills --no-overwrite  Skip existing files instead of overwriting
 
 ralph secrets set KEY=value   Store a secret in .ralph/.env
 ralph secrets unset KEY       Remove a secret
@@ -197,7 +199,7 @@ ralph profile apply <name>    Apply a profile to the current project
 ralph install-skills
 ```
 
-Installs six skills to `~/.claude/skills/`:
+Installs six skills to `~/.claude/skills/`, then installs `dididy/e2e-skills` and `dididy/ui-skills` via `npx skills`. Overwrites existing files by default — use `--no-overwrite` to skip.
 
 | File | Slash Command | Role |
 |------|--------------|------|

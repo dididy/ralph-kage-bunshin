@@ -168,7 +168,7 @@ describe('ralph status', () => {
     vi.mocked(state.resetExpiredLeases).mockReturnValue([2])
     vi.mocked(state.readTasks).mockReturnValue([])
     printStatus('/tmp/test', new Set(), new Set(), true)
-    expect(recoverModule.runRecover).toHaveBeenCalledWith('/tmp/test')
+    expect(recoverModule.runRecover).toHaveBeenCalledWith('/tmp/test', undefined)
   })
 
   it('expired lease with autoRecover=false does not trigger runRecover', () => {

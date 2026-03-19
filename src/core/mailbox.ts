@@ -14,6 +14,20 @@ function mailboxDir(projectDir: string): string {
   return path.join(projectDir, '.ralph', 'mailbox')
 }
 
+const VALID_MESSAGE_TYPES = new Set(['task_complete', 'blocked', 'decision', 'info'])
+
+function isValidMailboxMessage(m: unknown): m is MailboxMessage {
+  if (typeof m !== 'object' || m === null) return false
+  const msg = m as Record<string, unknown>
+  if (typeof msg.from !== 'number') return false
+  if (msg.to !== 'all' && typeof msg.to !== 'number') return false
+  if (!VALID_MESSAGE_TYPES.has(msg.type as string)) return false
+  if (typeof msg.subject !== 'string') return false
+  if (typeof msg.body !== 'string') return false
+  if (typeof msg.timestamp !== 'string') return false
+  return true
+}
+
 export function sendMessage(projectDir: string, msg: Omit<MailboxMessage, 'timestamp'>): void {
   const dir = mailboxDir(projectDir)
   fs.mkdirSync(dir, { recursive: true })
@@ -36,8 +50,12 @@ export function listMessages(projectDir: string): (MailboxMessage & { filename: 
   const msgs: (MailboxMessage & { filename: string; read: boolean })[] = []
   for (const filename of files) {
     try {
-      const msg: MailboxMessage = JSON.parse(fs.readFileSync(path.join(dir, filename), 'utf-8'))
-      msgs.push({ ...msg, filename, read: filename.endsWith('.read') })
+      const parsed: unknown = JSON.parse(fs.readFileSync(path.join(dir, filename), 'utf-8'))
+      if (!isValidMailboxMessage(parsed)) {
+        console.warn(`[WARN] Skipping invalid mailbox message: ${filename}`)
+        continue
+      }
+      msgs.push({ ...parsed, filename, read: filename.endsWith('.read') })
     } catch {
       console.warn(`[WARN] Skipping malformed mailbox file: ${filename}`)
     }
@@ -74,4 +92,22 @@ export function countUnread(projectDir: string): number {
   const dir = mailboxDir(projectDir)
   if (!fs.existsSync(dir)) return 0
   return fs.readdirSync(dir).filter(f => f.endsWith('.json')).length
+}
+
+export function pruneMailbox(projectDir: string, keepDays = 7): void {
+  const dir = mailboxDir(projectDir)
+  if (!fs.existsSync(dir)) return
+  const cutoff = Date.now() - keepDays * 24 * 60 * 60 * 1000
+  for (const filename of fs.readdirSync(dir)) {
+    if (!filename.endsWith('.json.read')) continue
+    const filePath = path.join(dir, filename)
+    try {
+      const { mtimeMs } = fs.statSync(filePath)
+      if (mtimeMs < cutoff) {
+        fs.unlinkSync(filePath)
+      }
+    } catch {
+      // ignore errors for individual files
+    }
+  }
 }

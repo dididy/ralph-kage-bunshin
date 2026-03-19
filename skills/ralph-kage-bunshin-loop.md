@@ -1,6 +1,6 @@
 ---
 name: ralph-kage-bunshin-loop
-description: Use when running as a ralph-kage-bunshin worker — claims tasks, follows TDD, calls Debugger on failures, inline verify + architect review before converging
+description: Use when running as a ralph-kage-bunshin worker — claims tasks, follows TDD, calls Debugger on failures, inline verify before converging
 ---
 
 # /ralph-kage-bunshin-loop — Ralph Loop Skill
@@ -13,6 +13,7 @@ You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PA
 > - `/playwright-debugger` — diagnose E2E test failures
 > - `/transition-reverse-engineering` — capture animation/transition timing from reference sites
 > - `/ui-reverse-engineering` — capture layout/interaction behavior from reference sites
+> - `/api-integration-checklist` — verify CORS, auth, rate limits before writing API client code
 >
 > If any of these are not installed, skip the relevant step and note it in PROGRESS.md.
 
@@ -50,12 +51,18 @@ You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PA
    - If all tasks are `'in-progress'` → all remaining work is handled by other workers. Run `ralph recover` (in case any are stuck), then exit.
    - If all tasks are `'converged'` → the project is done. Exit.
 
+**After claiming — verify the environment is actually ready:**
+- If your task `depends_on` a setup task (e.g. id: 1), check that the expected project files actually exist (e.g. `package.json`, `src/`). A setup task marked `'converged'` may have been completed in a different worktree or the files may be missing for other reasons.
+- If files are missing: do NOT assume the setup task is complete. Build or restore what's needed, and record this in your first PROGRESS.md entry.
+
 Then read in this order:
-- `.ralph/mailbox/` — process messages addressed to you (`to: workerId` or `to: "all"`). For each message: read it, then immediately rename it by appending `.read` to the filename (e.g. `msg.json` → `msg.json.read`). This prevents re-processing on the next loop iteration.
-- `CLAUDE.md` — **how to work** (coding rules, TDD, commit gates)
+- `.ralph/mailbox/` — process messages addressed to you (`to: workerId` or `to: "all"`). Skip files ending in `.read`. For each unread message: read it, then immediately rename it by appending `.read` to prevent re-processing. Message types:
+  - `task_complete`: extract the `learnings` array — treat each entry as a hard constraint. If no `learnings` field, check sender's PROGRESS.md directly.
+  - `broadcast`: a critical mid-task discovery (wrong API params, broken env, incorrect docs, etc.) — **stop current work immediately**, apply the correction, record it in PROGRESS.md under `learnings:`, then resume. Do not defer broadcasts.
+- `CLAUDE.md` — **how to work** (coding rules, TDD, commit gates). Read the `## Code Correctness Rules` section before writing any code.
 - `.ralph/SPEC.md` — **what to build** (architecture, tech stack, done criteria, E2E scenarios). **This overrides CLAUDE.md defaults for tech stack choices.**
-- `.ralph/workers/worker-N/PROGRESS.md` (resume if exists, start fresh if not)
-- `.ralph/workers/worker-N/state.json` (current state — use to initialize your generation counter)
+- `.ralph/workers/worker-N/PROGRESS.md` — **read every `learnings:` line from previous generations before doing anything**. These are hard-won discoveries. Repeating a failed approach already recorded in `learnings` is not allowed.
+- `.ralph/workers/worker-N/state.json` (current state — use to initialize your generation counter and `approach_history`)
 
 **state.json initial structure** (create if missing):
 ```json
@@ -65,7 +72,8 @@ Then read in this order:
   "generation": 0,
   "consecutive_failures": 0,
   "last_results": [],
-  "pathology": { "stagnation": false, "oscillation": false, "wonder_loop": false },
+  "pathology": { "stagnation": false, "oscillation": false, "wonder_loop": false, "external_service_block": false },
+  "approach_history": [],
   "dod_checklist": { "npm_test": false, "npm_build": false, "tasks_complete": false },
   "converged": false,
   "started_at": "<ISO timestamp>",
@@ -79,12 +87,8 @@ Repeat the following until CONVERGED or PATHOLOGY detected:
 
 ### 1. Implement the next step
 - Record what you're implementing in PROGRESS.md
-- **If the task involves reverse-engineering visual behavior** (animations, transitions, UI cloning — check task `description` for `/transition-reverse-engineering` or `/ui-reverse-engineering`):
-  1. Run `/transition-reverse-engineering` (for animation/transition timing) or `/ui-reverse-engineering` (for layout/interaction behavior) to capture reference recording/frames from the original site — dismiss any modals before recording
-  2. Capture the same recording/frames from our implementation
-  3. Compare side-by-side and adjust timing/easing using measured values only — no guessing
-  4. Repeat until 100% match before proceeding
-  5. **"Already implemented" is not grounds for skipping this step** — visual comparison is mandatory every time
+- **If the task involves reverse-engineering visual behavior** (check task `description` for `/transition-reverse-engineering` or `/ui-reverse-engineering`): invoke the relevant skill — it contains the full procedure including reference capture, implementation capture, comparison, and iteration rules
+- **If the task involves calling any external API** (check task `description` for API endpoints, fetch calls, third-party services): run `/api-integration-checklist` — it contains the full procedure including endpoint verification, CORS/proxy decision, and type safety
 - **If the task involves any browser UI** (pages, forms, interactions, routing):
   1. Write E2E spec first using `/playwright-test-generator` — describe the user scenario before touching implementation code
   2. Run the E2E test to confirm it fails (red)
@@ -96,6 +100,19 @@ Repeat the following until CONVERGED or PATHOLOGY detected:
   2. Write the test first (confirm it fails — red)
   3. Write minimum implementation to pass the test (green)
   4. Capture actual test output (no assumptions)
+- **If you discover an environment-level gotcha** at any point (a CLI tool that intercepts commands unexpectedly, a proxy config that requires restart, source files missing despite a "converged" setup task, etc.) — **immediately** append it to `CLAUDE.md` under a `## Environment Notes` section. Do not wait until converge. Other workers may hit the same issue before you finish.
+- **If you discover any critical fact that other workers need before starting their work** (wrong API parameter, incorrect doc, broken assumption in SPEC.md, env issue not yet in CLAUDE.md, etc.) — **immediately** write a `broadcast` mailbox message. Do not wait for `task_complete`. Format:
+  ```json
+  {
+    "type": "broadcast",
+    "from": "worker-N",
+    "to": "all",
+    "subject": "[one-line summary]",
+    "body": "[what you discovered and what the correct behavior is]",
+    "sent_at": "<ISO timestamp>"
+  }
+  ```
+  Save as `.ralph/mailbox/<timestamp>-worker-N-broadcast.json`. Other workers will pick it up at the start of their next generation.
 
 ### 2. Renew lease
 Read `.ralph/tasks.json`, update `lease_expires_at` for your task, write it back. Do this **before** running tests, and again after tests complete.
@@ -112,12 +129,49 @@ Do not hand-type a timestamp — always calculate from `Date.now()`.
 npm test 2>&1 | tail -20
 ```
 - Read the actual output — never assume "it probably passed"
-- On failure: analyze error → fix → rerun
+- On failure: **diagnose root cause first** — write one sentence naming the cause before writing any fix. If you cannot name it, add logging/instrumentation to find it.
+- On failure with same approach twice in a row: the approach is wrong, not the implementation. Change direction.
+
+### 3b. Runtime verification (UI tasks only)
+
+For tasks involving browser UI, tsc + unit tests passing is **not sufficient**. After tests pass:
+
+```bash
+agent-browser open http://localhost:<port>
+agent-browser screenshot tmp/verify/before.png
+# trigger the interaction (click, navigate, hover)
+# wait for the interaction to complete — check the actual animation/transition duration
+# from CSS (@keyframes, transition property) or JS config, then use that value
+agent-browser wait <measured_duration_ms>
+agent-browser screenshot tmp/verify/during.png
+agent-browser wait <measured_duration_ms>
+agent-browser screenshot tmp/verify/after.png
+```
+
+**Do NOT use arbitrary sleep values** — measure from the implementation: for CSS animations use `animation-delay + animation-duration + 50ms`; for CSS transitions use `transition-delay + transition-duration + 50ms`; for JS timers use the timeout value `+ 50ms`. The +50ms accounts for browser repaint.
+
+Read all three screenshots. Verify:
+- [ ] No white flash / blank frame in `during.png`
+- [ ] No layout jump between frames
+- [ ] Content visible in `after.png` matches expected state
+
+**If any check fails:** record the visual defect in PROGRESS.md, update state.json `last_results` with `'fail'` and increment `consecutive_failures`, renew the lease, then go back to step 1 to fix the root cause.
+
+Also verify global entry points are correct:
+```bash
+# Check that CSS resets are actually loaded — adapt path to your framework's entry file
+# React/Vite: src/main.tsx or src/index.tsx
+# Next.js: src/pages/_app.tsx or src/app/layout.tsx
+# Plain HTML: index.html (look for <link rel="stylesheet">)
+grep -r "import.*\.css" src/main.tsx src/index.tsx src/pages/_app.tsx src/app/layout.tsx 2>/dev/null \
+  || grep -r "stylesheet" index.html 2>/dev/null \
+  || echo "MISSING: no CSS entry point import found — check your framework's entry file"
+```
 
 ### 4. Update state.json
 Read the current state.json first, then write back with:
 - `generation`: current value + 1
-- `last_results`: append 'pass' or 'fail', keep only the last 5 entries
+- `last_results`: append `'pass'`, `'fail'`, or `'fail:external_service'` (use `'fail:external_service'` when the failure is caused by an external API/service error, not your own code). Keep only the last 5 entries.
 - `consecutive_failures`: reset to 0 on pass, increment by 1 on fail
 - `dod_checklist.npm_test`: set to true when npm test passes
 - `dod_checklist.npm_build`: set to true when npm run build passes
@@ -129,8 +183,9 @@ Read the current state.json first, then write back with:
 | Pattern | Condition | Response |
 |---------|-----------|----------|
 | Stagnation | `consecutive_failures >= 3` | Call `/ralph-kage-bunshin-debug` with your worker ID, project dir, task name, and the last error output. Apply the proposed fix. If confidence was low or the fix also fails after 3 more attempts, break the task into smaller pieces. |
-| Oscillation | The last 4 entries of `last_results` are `['fail','pass','fail','pass']` — check with `last_results.slice(-4).join()` === `'fail,pass,fail,pass'` | Lock the decision in CLAUDE.md |
-| WonderLoop | Same question/approach attempted 3+ times in this session | Choose a different approach |
+| Oscillation | The last 4 entries of `last_results` alternate fail/pass — check with `last_results.slice(-4).every((r,i) => (i%2===0 && r==='fail') \|\| (i%2===1 && r==='pass'))` | The implementation decision is unstable. Lock the correct approach in CLAUDE.md and do not revisit it. |
+| WonderLoop | The same implementation goal (recorded in `approach_history`) has been attempted 3+ times without passing | Choose a fundamentally different strategy — not a variation of the same approach |
+| ExternalServiceBlock | `last_results` has 3+ consecutive `'fail:external_service'` entries (check with `last_results.slice(-3).every(r => r === 'fail:external_service')`) | **Switch approach entirely**: (1) record current approach and error in `state.json` under `approach_history: [{ approach: "...", error: "...", tried_at: "<ISO>" }]`, (2) choose a fundamentally different strategy in this order: direct fetch → Vite proxy → server-side proxy → mock fallback, (3) re-run `/api-integration-checklist` with the new approach, (4) reset `consecutive_failures` to 0 and continue. If all strategies in the list have been tried, mark `external_service_block: true` in pathology. |
 
 **On pathology detected — do these steps in order, then exit:**
 1. Update `pathology` field in state.json (e.g. `{ "stagnation": true }`)
@@ -145,60 +200,72 @@ Write to `.ralph/workers/worker-N/PROGRESS.md`:
 - task: [what you did]
 - result: pass / fail / PATHOLOGY — [type]
 - next: [what to do next, or "CONVERGED" if done, or "EXITING — pathology" if stopping]
+- used_skills: [list of slash commands actually invoked this generation, e.g. "/transition-reverse-engineering, /api-integration-checklist", or "none"]
 - learnings: [one sentence — what you discovered that the next worker should know, or "none"]
 ```
 
 ### 7. DoD check
-Run these and check actual output:
+
+**Before running DoD — re-read `.ralph/tasks.json` and check your task's current status:**
+- If `status` is already `'converged'` and `worker` is NOT your worker ID → another worker completed this task. Do NOT continue. Go back to "On Start" and claim the next pending task.
+- If `status` is `'converged'` and `worker` IS your worker ID → you already converged, exit cleanly.
+
+#### Phase 1 — Inline Verification (your job)
+
+Run fresh and check actual output:
 
 ```bash
-npm test              # all Vitest tests pass
-npm run build         # no build errors
+npm test 2>&1 | tail -30
+npm run build 2>&1 | tail -20
 ```
 
-For E2E: check `package.json` `scripts` for a Playwright-specific script — look for keys containing `e2e`, `playwright`, or similar (e.g. `test:e2e`, `e2e`, `playwright`). These are distinct from `npm test` which runs Vitest unit tests. Run the Playwright script if present; skip only if none exists.
+For E2E: check `package.json` `scripts` for a Playwright-specific script — look for keys containing `e2e`, `playwright`, or similar (e.g. `test:e2e`, `e2e`, `playwright`). Run it if present.
 
-**For UI tasks — before calling architect:**
-- Run `/e2e-reviewer` on your Playwright test files and fix any issues flagged
+For UI tasks:
+- Run Step 3b runtime verification (browser screenshots: before/during/after) — tests passing is not sufficient
+- Run `/e2e-reviewer` on your Playwright test files and fix any issues flagged (skip only if not installed — note it in PROGRESS.md)
 - E2E tests must cover all scenarios assigned to this task in `.ralph/SPEC.md`
 
-Also verify that all acceptance criteria in the task's `description` field (from `.ralph/tasks.json`) are implemented.
+For each acceptance criterion in `.ralph/tasks.json` for your task:
+- Mark as VERIFIED (test exists and passes), PARTIAL, or MISSING
 
-**When all 3 conditions are true:**
+For each E2E scenario assigned to this task in `.ralph/SPEC.md`:
+- Mark as COVERED or MISSING
 
-1. **Verification (inline — do NOT call a separate skill):**
-   Run fresh:
-   ```bash
-   npm test 2>&1 | tail -30
-   npm run build 2>&1 | tail -20
-   ```
-   For each acceptance criterion in `.ralph/tasks.json` for your task:
-   - Mark as VERIFIED (test exists and passes), PARTIAL, or MISSING
-   For E2E scenarios assigned to this task in `.ralph/SPEC.md`:
-   - Mark as COVERED or MISSING
+**Verdict:**
+- All VERIFIED + all E2E COVERED + tests + build green → write `dod_checklist` all `true` in state.json, then proceed to Phase 2
+- Any FAIL or MISSING → fix the gaps and repeat from the top of DoD
 
-   **Verdict:**
-   - All VERIFIED + all E2E COVERED + tests + build green → **proceed immediately to step 2**
-   - FAIL or INCOMPLETE → fix the gaps, re-run DoD, then repeat step 1
+#### Phase 2 — Inline Architect Review (independent self-audit)
 
-2. **Architect review (inline — do NOT call a separate skill):**
-   Read: `.ralph/SPEC.md`, `CLAUDE.md`, source + test files for the task, `.ralph/workers/worker-N/state.json`, `.ralph/workers/worker-N/PROGRESS.md`
+> **POLICY: `converged: true` and `architect_review` are written only here in Phase 2 — not before, not pre-emptively. Skip Phase 2 and you are not converged.**
 
-   Check:
-   - All spec requirements met? No done criteria missing?
-   - Tests test behavior (not implementation details)?
-   - No scope creep (nothing built outside the spec)?
-   - No unresolved `debug_session` with `confidence: low` in state.json?
-   - Steelman: "What's the strongest reason to reject?" — if you find one, reject. If none, approve.
+Read as if you are a separate reviewer seeing this code for the first time:
+`.ralph/SPEC.md`, `CLAUDE.md`, source + test files for the task, state.json, PROGRESS.md
 
-   **If APPROVED:**
-   - Write `.ralph/workers/worker-N/state.json` — set `converged: true`, set `dod_checklist` all to `true`, add `architect_review: { status: "approved", reviewed_at: "<ISO>", notes: "<brief reason>" }` (preserve all other fields)
-   - Write `.ralph/tasks.json` — set this task's `status` to `"converged"`
-   - Continue to step 3
+**Time-box to 10 minutes.** Record `architect_review_started_at` in state.json before starting. If you cannot reach a verdict within 10 minutes, treat it as PATHOLOGY — write `{ "architect_review_timeout": true }` to state.json, set task status to `'pathology'`, and exit.
 
-   **If REJECTED:**
-   - Write `.ralph/workers/worker-N/state.json` — add `architect_review: { status: "rejected", reviewed_at: "<ISO>", notes: "<specific gaps>" }` (preserve all other fields)
-   - Fix each gap listed, re-run DoD, then repeat step 1
+Check:
+- All spec requirements met? No done criteria missing? (check both SPEC.md and the task `description` in tasks.json)
+- Tests test behavior (not implementation details)?
+- No scope creep (nothing built outside the spec)?
+- No unresolved `debug_session` with `confidence: low` in state.json?
+- **UI tasks only**: evidence in state.json or PROGRESS.md that before/during/after screenshots were taken? If not → REJECTED.
+- **Read the actual source code** — not just test output. For each file touched, apply `CLAUDE.md § Code Correctness Rules`:
+  - Are values passed to dependencies stable/fresh as the contract requires?
+  - Are async operations that write to shared state cancellable?
+  - Does every boolean/state that gates UI visibility reach the correct value on both happy and error paths?
+- Steelman: "What's the strongest reason to reject?" — if you find one, reject. If none, approve.
+
+**If APPROVED:**
+- Write `.ralph/workers/worker-N/state.json` — set `converged: true`, set `dod_checklist` all to `true`, add `architect_review: { status: "approved", reviewed_at: "<ISO>", notes: "<brief reason>" }` (preserve all other fields)
+- Write `.ralph/tasks.json` — set this task's `status` to `"converged"`
+- Continue to step 3 below
+
+**If REJECTED:**
+- Write `.ralph/workers/worker-N/state.json` — add `architect_review: { status: "rejected", reviewed_at: "<ISO>", notes: "<specific gaps>" }` (preserve all other fields)
+- Fix each gap listed, re-run DoD from Phase 1
+
 3. **If the task had `"isolated": true`** — merge or PR the worktree branch:
    - If the project has a remote (`git remote -v` returns output): create a PR
      ```bash
@@ -214,10 +281,19 @@ Also verify that all acceptance criteria in the task's `description` field (from
      git worktree remove --force $RALPH_PROJECT_DIR/.ralph/workers/worker-N/worktree
      git branch -D feat/worker-N-<slug>
      ```
-4. Write a mailbox message file to `.ralph/mailbox/<timestamp>-worker-N.json`:
+4. Write a mailbox message file to `.ralph/mailbox/<timestamp>-worker-N-task-complete.json`:
    ```json
-   { "from": N, "to": "all", "type": "task_complete", "subject": "task N complete: [name]", "body": "brief summary of what was built", "timestamp": "<ISO>" }
+   {
+     "from": N,
+     "to": "all",
+     "type": "task_complete",
+     "subject": "task N complete: [name]",
+     "body": "brief summary of what was built",
+     "learnings": ["one-line learning 1", "one-line learning 2"],
+     "timestamp": "<ISO>"
+   }
    ```
+   **`learnings` is mandatory** — copy every `learnings:` line from your PROGRESS.md into this array. Other workers will read this before starting their tasks. Empty array only if you genuinely learned nothing new.
 5. Write final PROGRESS.md entry with `result: pass` and `next: CONVERGED`
 6. Print:
 
@@ -233,8 +309,9 @@ generation: N
 
 ## Absolute Rules
 
-- On external service failure: immediately mock it and keep going (never stop)
+- On external service failure: mark `'fail:external_service'` in last_results, try next approach in the escalation ladder (direct → proxy → mock fallback). Do NOT immediately mock — exhaust real approaches first, then fall back to mock as last resort.
 - Never disable or delete tests to make them pass
 - Never implement beyond what the task description defines as scope
 - When stuck: break into smaller pieces → retry
 - After 3 failed attempts with same approach: choose a different method
+- See `CLAUDE.md § Code Correctness Rules` for language/framework-agnostic correctness requirements — these apply to every line of code you write

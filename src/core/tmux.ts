@@ -50,3 +50,30 @@ export function sessionExists(name: string): boolean {
     return false
   }
 }
+
+export function listPanes(session: string): number[] {
+  try {
+    const out = execFileSync('tmux', ['list-panes', '-t', session, '-F', '#{pane_index}'], { stdio: 'pipe' })
+    return out.toString().trim().split('\n').map(Number).filter(n => !isNaN(n))
+  } catch {
+    return []
+  }
+}
+
+export function killPane(session: string, pane: number): void {
+  try {
+    exec(['kill-pane', '-t', `${session}.${pane}`])
+  } catch {
+    // pane may already be gone
+  }
+}
+
+export function getActivePaneIndex(session: string): number | null {
+  try {
+    const out = execFileSync('tmux', ['display-message', '-t', session, '-p', '#{pane_index}'], { stdio: 'pipe' })
+    const n = parseInt(out.toString().trim(), 10)
+    return isNaN(n) ? null : n
+  } catch {
+    return null
+  }
+}

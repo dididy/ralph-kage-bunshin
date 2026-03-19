@@ -17,6 +17,7 @@ describe('ralph recover', () => {
     vi.mocked(tmux.splitPane).mockReturnValue(undefined)
     vi.mocked(tmux.applyLayout).mockReturnValue(undefined)
     vi.mocked(tmux.sendKeys).mockReturnValue(undefined)
+    vi.mocked(tmux.listPanes).mockReturnValue([0, 1, 2, 3])
     vi.mocked(state.writeWorkerState).mockReturnValue(undefined)
     vi.mocked(state.resetStuckTasks).mockReturnValue([])
     vi.mocked(caffeinate.startCaffeinate).mockReturnValue(undefined)
@@ -55,7 +56,7 @@ describe('ralph recover', () => {
     ])
     runRecover('/tmp/project')
     const allCmds = vi.mocked(tmux.sendKeys).mock.calls.map(c => c[2])
-    expect(allCmds).toContain('export RALPH_WORKER_ID=4')
+    expect(allCmds).toContain("export RALPH_WORKER_ID='4'")
   })
 
   it('splits one extra pane when there are 2 pending tasks', () => {

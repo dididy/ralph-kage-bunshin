@@ -1,5 +1,5 @@
 import { readTasks, readWorkerState, resetExpiredLeases, resetStuckTasks } from '../core/state'
-import { countUnread, listMessages } from '../core/mailbox'
+import { countUnread, listMessages, pruneMailbox } from '../core/mailbox'
 import { notify } from '../core/notify'
 import { loadConfig } from '../core/config'
 import { runRecover } from './recover'
@@ -62,7 +62,7 @@ export function getStatus(projectDir: string): RalphStatus {
     }
   })
 
-  const maxElapsed = Math.max(...workers.map(w => w.elapsedMinutes), 0)
+  const maxElapsed = workers.length > 0 ? Math.max(...workers.map(w => w.elapsedMinutes)) : 0
 
   return { workers, maxElapsedMinutes: maxElapsed } satisfies RalphStatus
 }
@@ -72,6 +72,7 @@ export function printStatus(
   notifiedConverged = new Set<number>(),
   notifiedPathology = new Set<number>(),
   autoRecover = false,
+  sessionName?: string,
 ): void {
   const expiredIds = resetExpiredLeases(projectDir)
   for (const id of expiredIds) {
@@ -79,7 +80,7 @@ export function printStatus(
   }
   if (expiredIds.length > 0 && autoRecover) {
     console.log(`  [RECOVER] Auto-recovering ${expiredIds.length} expired task(s)...`)
-    runRecover(projectDir)
+    runRecover(projectDir, sessionName)
   }
 
   const stuckIds = resetStuckTasks(projectDir)
@@ -88,7 +89,11 @@ export function printStatus(
   }
   if (stuckIds.length > 0 && autoRecover) {
     console.log(`  [RECOVER] Auto-recovering ${stuckIds.length} stuck task(s)...`)
-    runRecover(projectDir)
+    runRecover(projectDir, sessionName)
+  }
+
+  if (autoRecover) {
+    pruneMailbox(projectDir)
   }
 
   const { workers, maxElapsedMinutes } = getStatus(projectDir)

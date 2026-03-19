@@ -39,6 +39,10 @@ For each acceptance criterion in the task:
 For E2E scenarios assigned to this task in SPEC.md:
 - Mark as COVERED or MISSING
 
+For UI tasks — check runtime visual verification:
+- Look in PROGRESS.md or state.json for evidence of browser screenshots (before/during/after)
+- Mark as VERIFIED (evidence present + no failures noted), MISSING (no evidence), or FAILED (evidence shows unfixed visual bug)
+
 ## Output Format
 
 ```

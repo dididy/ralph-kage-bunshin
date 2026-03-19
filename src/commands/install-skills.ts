@@ -1,24 +1,14 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { createInterface } from 'readline'
+import { fileURLToPath } from 'url'
 import { spawnSync } from 'child_process'
 
 const SKILLS_DEST = path.join(os.homedir(), '.claude', 'skills')
 
-function confirm(question: string): Promise<boolean> {
-  return new Promise(resolve => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout })
-    rl.question(question, answer => {
-      rl.close()
-      resolve(answer.trim().toLowerCase() === 'y')
-    })
-  })
-}
-
-export async function installSkills(opts: { force: boolean }): Promise<void> {
+export async function installSkills(opts: { noOverwrite: boolean }): Promise<void> {
   // skills/ dir is relative to the installed package root
-  const pkgRoot = path.resolve(new URL(import.meta.url).pathname, '..', '..')
+  const pkgRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
   const skillsSrc = path.join(pkgRoot, 'skills')
 
   if (!fs.existsSync(skillsSrc)) {
@@ -40,12 +30,9 @@ export async function installSkills(opts: { force: boolean }): Promise<void> {
     const dest = path.join(skillDir, 'SKILL.md')
     const exists = fs.existsSync(dest)
 
-    if (exists && !opts.force) {
-      const overwrite = await confirm(`[WARN] ${skillName} already exists. Overwrite? (y/N) `)
-      if (!overwrite) {
-        console.log(`  skipped: ${skillName}`)
-        continue
-      }
+    if (exists && opts.noOverwrite) {
+      console.log(`  skipped: ${skillName}`)
+      continue
     }
 
     fs.mkdirSync(skillDir, { recursive: true })
@@ -55,9 +42,16 @@ export async function installSkills(opts: { force: boolean }): Promise<void> {
 
   console.log(`\nDone. Skills installed to ${SKILLS_DEST}`)
 
-  console.log('\nInstalling e2e-skills (dididy/e2e-skills)...')
-  const result = spawnSync('npx', ['skills', 'install', 'dididy/e2e-skills'], { stdio: 'inherit' })
-  if (result.status !== 0) {
-    console.error('[WARN] e2e-skills installation failed. You can install manually: npx skills install dididy/e2e-skills')
+  const externalSkills = [
+    { name: 'e2e-skills', ref: 'dididy/e2e-skills' },
+    { name: 'ui-skills', ref: 'dididy/ui-skills' },
+  ]
+
+  for (const skill of externalSkills) {
+    console.log(`\nInstalling ${skill.name} (${skill.ref})...`)
+    const result = spawnSync('npx', ['skills', 'install', skill.ref], { stdio: 'inherit' })
+    if (result.status !== 0) {
+      console.error(`[WARN] ${skill.name} installation failed. You can install manually: npx skills install ${skill.ref}`)
+    }
   }
 }
