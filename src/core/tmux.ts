@@ -68,6 +68,14 @@ export function killPane(session: string, pane: number): void {
   }
 }
 
+export function setPaneTitle(session: string, pane: number, title: string): void {
+  try {
+    exec(['select-pane', '-t', `${session}.${pane}`, '-T', title])
+  } catch {
+    // non-critical — older tmux versions may not support -T
+  }
+}
+
 export function getActivePaneIndex(session: string): number | null {
   try {
     const out = execFileSync('tmux', ['display-message', '-t', session, '-p', '#{pane_index}'], { stdio: 'pipe' })
@@ -76,4 +84,82 @@ export function getActivePaneIndex(session: string): number | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Get the current foreground command running in each pane.
+ * Returns a map of paneIndex → command name (e.g. "zsh", "node", "claude").
+ */
+export function getPaneCommands(session: string): Map<number, string> {
+  const result = new Map<number, string>()
+  try {
+    const out = execFileSync('tmux', [
+      'list-panes', '-t', session, '-F', '#{pane_index} #{pane_current_command}',
+    ], { stdio: 'pipe' })
+    for (const line of out.toString().trim().split('\n')) {
+      const spaceIdx = line.indexOf(' ')
+      if (spaceIdx === -1) continue
+      const idx = parseInt(line.slice(0, spaceIdx), 10)
+      const cmd = line.slice(spaceIdx + 1)
+      if (!isNaN(idx)) result.set(idx, cmd)
+    }
+  } catch { /* ignore */ }
+  return result
+}
+
+/**
+ * Find pane indices running an idle shell (zsh/bash/fish/sh).
+ * Excludes the status pane (identified by running `ralph` or `node` with --watch).
+ */
+export function findIdlePanes(session: string): number[] {
+  const cmds = getPaneCommands(session)
+  const idle: number[] = []
+  for (const [paneIdx, cmd] of cmds) {
+    if (/^(zsh|bash|fish|sh)$/.test(cmd)) {
+      idle.push(paneIdx)
+    }
+  }
+  return idle
+}
+
+/**
+ * Get pane titles for each pane in the session.
+ */
+export function getPaneTitles(session: string): Map<number, string> {
+  const result = new Map<number, string>()
+  try {
+    const out = execFileSync('tmux', [
+      'list-panes', '-t', session, '-F', '#{pane_index} #{pane_title}',
+    ], { stdio: 'pipe' })
+    for (const line of out.toString().trim().split('\n')) {
+      const spaceIdx = line.indexOf(' ')
+      if (spaceIdx === -1) continue
+      const idx = parseInt(line.slice(0, spaceIdx), 10)
+      const title = line.slice(spaceIdx + 1)
+      if (!isNaN(idx)) result.set(idx, title)
+    }
+  } catch { /* ignore */ }
+  return result
+}
+
+/**
+ * Find the status pane by title first ('ralph-status'), then fall back to
+ * command detection ('node' or 'watch'). Title-based detection is reliable
+ * because `team.ts` sets it explicitly; command-based is a fallback for
+ * sessions created before this change.
+ */
+export function findStatusPane(session: string): number | null {
+  // Primary: match by pane title
+  const titles = getPaneTitles(session)
+  for (const [paneIdx, title] of titles) {
+    if (title === 'ralph-status') return paneIdx
+  }
+  // Fallback: match by foreground command
+  const panes = listPanes(session)
+  const cmds = getPaneCommands(session)
+  for (const paneIdx of panes) {
+    const cmd = cmds.get(paneIdx) ?? ''
+    if (cmd === 'node' || cmd === 'watch') return paneIdx
+  }
+  return null
 }

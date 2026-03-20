@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
-import { createSession, splitPane, applyLayout, sendKeys, sessionExists, killSession, listPanes } from '../core/tmux'
-import { writeWorkerState } from '../core/state'
+import { createSession, splitPane, applyLayout, sendKeys, sessionExists, killSession, listPanes, setPaneTitle } from '../core/tmux'
+import { initWorkerState } from '../core/state'
 import { startCaffeinate } from '../core/caffeinate'
 import { loadConfig } from '../core/config'
 import { shellQuote } from '../core/shell'
@@ -30,18 +30,7 @@ export function launchWorkersOnPanes(
     const workerId = workerIds[i]
     const paneIdx = paneIndices[i]
 
-    writeWorkerState(projectDir, workerId, {
-      worker_id: workerId,
-      task: 'pending',
-      generation: 0,
-      consecutive_failures: 0,
-      last_results: [],
-      pathology: { stagnation: false, oscillation: false, wonder_loop: false },
-      dod_checklist: { npm_test: false, npm_build: false, tasks_complete: false },
-      converged: false,
-      started_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    initWorkerState(projectDir, workerId)
 
     sendKeys(sessionName, paneIdx, `cd ${shellQuote(projectDir)}`)
 
@@ -52,7 +41,7 @@ export function launchWorkersOnPanes(
     // Inject worker ID and project dir so the worker can identify itself and create worktrees
     sendKeys(sessionName, paneIdx, `export RALPH_WORKER_ID='${workerId}'`)
     sendKeys(sessionName, paneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
-    sendKeys(sessionName, paneIdx, `claude --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
+    sendKeys(sessionName, paneIdx, `claude -p --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
   }
 }
 
@@ -91,7 +80,8 @@ export function runTeam(workerCount: number, projectDir: string): void {
   const workerIds = Array.from({ length: workerCount }, (_, i) => i + 1)
   launchWorkersOnPanes(sessionName, workerIds, workerPanes, projectDir)
 
-  // Status pane
+  // Status pane — set title for reliable identification by recover
+  setPaneTitle(sessionName, statusPaneIdx, 'ralph-status')
   sendKeys(sessionName, statusPaneIdx, `cd ${shellQuote(projectDir)}`)
   sendKeys(sessionName, statusPaneIdx, `ralph status --watch`)
 

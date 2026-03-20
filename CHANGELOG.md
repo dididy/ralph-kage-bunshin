@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-03-20
+
+### Changed
+- Lease duration increased from 5 minutes to 30 minutes — reduces premature lease expiry for longer tasks
+- `/ralph-kage-bunshin-loop` — worktree setup now gracefully skips when project is not a git repo (no `.git` directory) instead of failing; logs "worktree skipped: not a git repo" in PROGRESS.md
+- `/ralph-kage-bunshin-architect` — runtime visual check now accepts `agent-browser unavailable` as valid skip reason instead of hard-rejecting
+- `/ralph-kage-bunshin-loop` — MANDATORY skill invocation check: tasks with `/ui-reverse-engineering` or `/transition-reverse-engineering` in description must invoke those skills before implementation; convergence gate now enforces this
+- `/ralph-kage-bunshin-loop` — new rule: read external library source before modifying code that calls it; do not assume behavior from API name alone
+- `/ralph-kage-bunshin-loop` — new rule: verify visual/animation changes in browser after each atomic change, not in batch
+- `/ralph-kage-bunshin-start` — UI clone tasks now require `/ui-reverse-engineering` in task description; animation tasks also require `/transition-reverse-engineering`
+- `ralph team N` — workers launched with `claude -p` (print mode) for cleaner output
+
+### Fixed
+- `ralph recover` — idle shell panes (worker exited, shell remains) now detected and recycled via `getPaneCommands()` instead of relying on converged state alone
+- `ralph recover` — excess idle panes cleaned up before recycling; prevents pane accumulation across multiple recovery cycles
+- `ralph recover` — worker state initialized (`initWorkerState`) before launching recovered workers; prevents stale state from previous worker
+
+### Added
+- `tmux.ts` — `getPaneCommands()`, `findIdlePanes()`, `findStatusPane()`, `getPaneTitles()`, `setPaneTitle()` utilities for reliable pane identification
+- `state.ts` — `createInitialWorkerState()` and `initWorkerState()` extracted as shared helpers; eliminates duplicate initialization in `team.ts` and `recover.ts`
+- `findStatusPane` now identifies status pane by title (`ralph-status`) with command-based fallback for backward compatibility
+- `cleanupIdlePanes` kills panes in reverse index order to prevent index shift during cleanup
+- `recover` logs a warning when `getActivePaneIndex` returns null after split instead of silently skipping
+
 ## [0.1.5] - 2026-03-19
 
 ### Added

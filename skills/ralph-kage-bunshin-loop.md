@@ -30,7 +30,7 @@ You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PA
    - Its `status` is `'pending'`, AND
    - It has no `depends_on`, OR all task IDs in `depends_on` have `status: 'converged'`
 3. Pick the claimable task with the **lowest ID number**
-4. **Immediately** write to `.ralph/tasks.json`: set the task's `status` to `'in-progress'`, `claimed_at` to now (ISO), `lease_expires_at` to now + 5 minutes, and `worker` to your worker ID. Save tasks.json.
+4. **Immediately** write to `.ralph/tasks.json`: set the task's `status` to `'in-progress'`, `claimed_at` to now (ISO), `lease_expires_at` to now + 30 minutes, and `worker` to your worker ID. Save tasks.json.
 5. **MANDATORY CLAIM VERIFICATION — do not skip this step:**
    - Wait 1 second (let other workers write if they're racing)
    - Re-read `.ralph/tasks.json` from disk
@@ -45,7 +45,7 @@ You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PA
    - **All coding work for this task happens inside the worktree directory**
    - `cd` into the worktree before starting the main loop
    - The `.ralph/` directory (state, tasks, mailbox) always lives in `$RALPH_PROJECT_DIR` — read/write it from there, not from the worktree
-   - If git is not available, skip worktree and work in `$RALPH_PROJECT_DIR` as normal
+   - **If git is not available OR the project is not a git repo** (no `.git` directory), skip worktree and work in `$RALPH_PROJECT_DIR` as normal. Do NOT fail — just log "worktree skipped: not a git repo" in PROGRESS.md and continue.
 7. If no claimable pending tasks exist:
    - If some tasks are `'pending'` but blocked (dependencies not yet converged) → **wait**: sleep 30 seconds, then go back to step 1
    - If all tasks are `'in-progress'` → all remaining work is handled by other workers. Run `ralph recover` (in case any are stuck), then exit.
@@ -87,7 +87,9 @@ Repeat the following until CONVERGED or PATHOLOGY detected:
 
 ### 1. Implement the next step
 - Record what you're implementing in PROGRESS.md
-- **If the task involves reverse-engineering visual behavior** (check task `description` for `/transition-reverse-engineering` or `/ui-reverse-engineering`): invoke the relevant skill — it contains the full procedure including reference capture, implementation capture, comparison, and iteration rules
+- **Before modifying code that calls an external library/hook** (animation libs, state managers, UI frameworks): **read the library's source implementation first** — understand what it does internally (cleanup behavior, side effects, DOM mutations, style resets). Do not assume behavior from the API name alone. Especially for animation libraries: understand the full lifecycle (init → animate → cleanup/revert) before adding styles or config that depend on intermediate states.
+- **For visual/animation changes: verify in browser after EACH atomic change** — do not batch multiple visual modifications across files before checking. Apply to one element → open browser → confirm it works → then propagate. tsc/vitest passing does NOT mean the visual result is correct.
+- **MANDATORY — check task `description` for `/ui-reverse-engineering` or `/transition-reverse-engineering` strings.** If either string appears in the description, you MUST invoke that skill BEFORE writing any implementation code. This is not optional — skipping it means the implementation will not match the reference site visually. Run the skill first to capture the reference, then implement based on the captured data. If both strings appear, run both skills. Record which skills you invoked in PROGRESS.md under `used_skills:`.
 - **If the task involves calling any external API** (check task `description` for API endpoints, fetch calls, third-party services): run `/api-integration-checklist` — it contains the full procedure including endpoint verification, CORS/proxy decision, and type safety
 - **If the task involves any browser UI** (pages, forms, interactions, routing):
   1. Write E2E spec first using `/playwright-test-generator` — describe the user scenario before touching implementation code
@@ -118,7 +120,7 @@ Repeat the following until CONVERGED or PATHOLOGY detected:
 Read `.ralph/tasks.json`, update `lease_expires_at` for your task, write it back. Do this **before** running tests, and again after tests complete.
 
 ```js
-lease_expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+lease_expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString()
 // e.g. "2026-03-19T01:23:45.678Z"
 ```
 
@@ -225,6 +227,11 @@ For UI tasks:
 - Run Step 3b runtime verification (browser screenshots: before/during/after) — tests passing is not sufficient
 - Run `/e2e-reviewer` on your Playwright test files and fix any issues flagged (skip only if not installed — note it in PROGRESS.md)
 - E2E tests must cover all scenarios assigned to this task in `.ralph/SPEC.md`
+
+**Skill invocation check:**
+- Re-read your task `description` in `.ralph/tasks.json`
+- If `/ui-reverse-engineering` appears in the description and `used_skills:` in your PROGRESS.md does NOT include it → you MUST go back and run it now. Do not converge without it.
+- If `/transition-reverse-engineering` appears in the description and `used_skills:` does NOT include it → same rule.
 
 For each acceptance criterion in `.ralph/tasks.json` for your task:
 - Mark as VERIFIED (test exists and passes), PARTIAL, or MISSING

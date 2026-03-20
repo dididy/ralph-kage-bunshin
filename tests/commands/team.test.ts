@@ -21,7 +21,7 @@ describe('ralph team', () => {
     vi.mocked(tmux.sendKeys).mockReturnValue(undefined)
     vi.mocked(tmux.listPanes).mockReturnValue([0, 1, 2, 3])
     vi.mocked(caffeinate.startCaffeinate).mockReturnValue(undefined)
-    vi.mocked(state.writeWorkerState).mockReturnValue(undefined)
+    vi.mocked(state.initWorkerState).mockReturnValue(undefined)
     vi.mocked(configModule.loadConfig).mockReturnValue({
       notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
       caffeinate: true,

@@ -86,13 +86,33 @@ export function writeWorkerState(projectDir: string, workerId: number, state: Wo
   fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(state, null, 2))
 }
 
+export function createInitialWorkerState(workerId: number): WorkerState {
+  const now = new Date().toISOString()
+  return {
+    worker_id: workerId,
+    task: 'pending',
+    generation: 0,
+    consecutive_failures: 0,
+    last_results: [],
+    pathology: { stagnation: false, oscillation: false, wonder_loop: false },
+    dod_checklist: { npm_test: false, npm_build: false, tasks_complete: false },
+    converged: false,
+    started_at: now,
+    updated_at: now,
+  }
+}
+
+export function initWorkerState(projectDir: string, workerId: number): void {
+  writeWorkerState(projectDir, workerId, createInitialWorkerState(workerId))
+}
+
 export function updateTaskStatus(projectDir: string, taskId: number, status: Task['status']): void {
   const tasks = readTasks(projectDir)
   const updated = tasks.map(t => t.id === taskId ? { ...t, status } : t)
   writeTasks(projectDir, updated)
 }
 
-export const LEASE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
+export const LEASE_DURATION_MS = 30 * 60 * 1000 // 30 minutes
 
 function warnMissingDependencies(tasks: Task[]): void {
   const taskIds = new Set(tasks.map(t => t.id))

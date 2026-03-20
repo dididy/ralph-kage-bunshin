@@ -79,12 +79,12 @@ describe('state', () => {
       const expiresAt = new Date(t.lease_expires_at!)
       expect(claimedAt.getTime()).toBeGreaterThanOrEqual(before.getTime())
       expect(claimedAt.getTime()).toBeLessThanOrEqual(after.getTime())
-      // lease is 5 minutes (300 seconds) from claimed_at
+      // lease is 30 minutes from claimed_at
       const diff = expiresAt.getTime() - claimedAt.getTime()
-      expect(diff).toBe(5 * 60 * 1000)
+      expect(diff).toBe(30 * 60 * 1000)
     })
 
-    it('renewLease updates lease_expires_at to now + 5 minutes', () => {
+    it('renewLease updates lease_expires_at to now + 30 minutes', () => {
       const oldExpiry = new Date(Date.now() + 60 * 1000).toISOString() // 1 min from now
       const data = {
         tasks: [{
@@ -103,10 +103,10 @@ describe('state', () => {
       const tasks = readTasks(tmpDir)
       const t = tasks[0]
       const newExpiry = new Date(t.lease_expires_at!)
-      // should be ~5 min from now
+      // should be ~30 min from now
       const diff = newExpiry.getTime() - before.getTime()
-      expect(diff).toBeGreaterThanOrEqual(5 * 60 * 1000)
-      expect(diff).toBeLessThanOrEqual(5 * 60 * 1000 + (after.getTime() - before.getTime()) + 1000)
+      expect(diff).toBeGreaterThanOrEqual(30 * 60 * 1000)
+      expect(diff).toBeLessThanOrEqual(30 * 60 * 1000 + (after.getTime() - before.getTime()) + 1000)
     })
 
     it('resetExpiredLeases resets expired tasks to pending and returns their ids', () => {

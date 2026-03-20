@@ -18,7 +18,7 @@ describe('ralph recover', () => {
     vi.mocked(tmux.applyLayout).mockReturnValue(undefined)
     vi.mocked(tmux.sendKeys).mockReturnValue(undefined)
     vi.mocked(tmux.listPanes).mockReturnValue([0, 1, 2, 3])
-    vi.mocked(state.writeWorkerState).mockReturnValue(undefined)
+    vi.mocked(state.initWorkerState).mockReturnValue(undefined)
     vi.mocked(state.resetStuckTasks).mockReturnValue([])
     vi.mocked(caffeinate.startCaffeinate).mockReturnValue(undefined)
     vi.mocked(configModule.loadConfig).mockReturnValue({

@@ -58,7 +58,9 @@ Check each of the following:
 
 ### Runtime visual verification (UI tasks only)
 - Check `state.json` or PROGRESS.md for evidence that the worker ran browser screenshots (before/during/after the interaction)
-- If no runtime verification was done → **REJECT**: "Runtime visual check missing — worker must run agent-browser screenshots and confirm no white flash, blank frame, or layout jump"
+- If no runtime verification was done:
+  - If the worker noted that `agent-browser` is unavailable → **acceptable** — skip this check
+  - Otherwise → **REJECT**: "Runtime visual check missing — worker must run agent-browser screenshots and confirm no white flash, blank frame, or layout jump"
 - If verification was done but a failure was noted and not fixed → **REJECT** with the specific visual defect
 
 ### Scope

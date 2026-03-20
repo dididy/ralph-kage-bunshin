@@ -226,6 +226,9 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 - A **wave** is a set of tasks that can start in parallel once their `depends_on` tasks are all converged. Waves are sequential — wave 2 starts after wave 1 finishes. Worker recommendation = max tasks in any single wave. Example: wave 1 has 1 task, wave 2 has 2 tasks → max parallel = 2 → `ralph team 2`.
 - **If a task involves reverse-engineering visual behavior from an existing site** (animations, transitions, UI cloning): include `/transition-reverse-engineering` or `/ui-reverse-engineering` in the task `description` — the worker will invoke the skill, which contains the full procedure
 
+**Before writing tasks.json — UI clone check:**
+If the project goal mentions cloning, copying, reproducing, replicating, or pixel-level recreation of an existing website/page, EVERY UI implementation task MUST include `/ui-reverse-engineering` in its `description`. For tasks that specifically involve animations or transitions, also include `/transition-reverse-engineering`. This is not optional — omitting it means the worker will implement from text description alone without comparing against the reference, producing visually incorrect results. Also ensure the reference URL is recorded in SPEC.md under `## Reference`.
+
 ### `CLAUDE.md`
 ```markdown
 # Project Constitution

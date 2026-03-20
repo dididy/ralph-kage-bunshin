@@ -1,26 +1,40 @@
 import path from 'path'
 import fs from 'fs'
-import { readTasks, resetExpiredLeases, resetStuckTasks, readWorkerState } from '../core/state'
-import { sessionExists, createSession, splitPane, applyLayout, killPane, listPanes, sendKeys, getActivePaneIndex } from '../core/tmux'
+import { readTasks, resetExpiredLeases, resetStuckTasks, readWorkerState, initWorkerState } from '../core/state'
+import { sessionExists, createSession, splitPane, applyLayout, killPane, listPanes, sendKeys, getActivePaneIndex, findIdlePanes, findStatusPane, getPaneCommands } from '../core/tmux'
 import { launchWorkers } from './team'
 import { loadConfig } from '../core/config'
 import { startCaffeinate } from '../core/caffeinate'
 import { shellQuote } from '../core/shell'
 
 /**
- * Find pane indices in the session that belong to converged/done workers.
- * We identify them by checking tasks.json — converged worker IDs map to
- * pane index (worker 1 → pane 0, worker 2 → pane 1, etc. as launched by team).
- * Since pane order may shift after kills, we track by worker ID via state.
+ * Find pane indices that can be recycled for new workers.
+ * Priority: idle shell panes first, then converged worker panes.
+ * Never returns the status pane.
  */
 function findRecyclablePanes(
   session: string,
   projectDir: string,
   neededCount: number,
 ): number[] {
-  const tasks = readTasks(projectDir)
+  const statusPane = findStatusPane(session)
+  const cmds = getPaneCommands(session)
 
-  // A worker is idle only if it has NO in-progress task currently assigned to it
+  // Idle shell panes (worker exited, shell remains)
+  const idlePanes: number[] = []
+  for (const [paneIdx, cmd] of cmds) {
+    if (paneIdx === statusPane) continue
+    if (/^(zsh|bash|fish|sh)$/.test(cmd)) {
+      idlePanes.push(paneIdx)
+    }
+  }
+
+  if (idlePanes.length >= neededCount) {
+    return idlePanes.slice(0, neededCount)
+  }
+
+  // Also check for converged workers whose claude process is still idle at prompt
+  const tasks = readTasks(projectDir)
   const activeWorkerIds = new Set(
     tasks
       .filter(t => t.status === 'in-progress' && t.worker !== null)
@@ -28,39 +42,25 @@ function findRecyclablePanes(
   )
 
   const panes = listPanes(session)
-  if (panes.length < 2) {
-    // Need at least one worker pane + one status pane to recycle
-    return []
-  }
-  // Status pane is the last pane — never recycle it
-  const workerPanes = panes.slice(0, -1)
+  const workerPanes = panes.filter(p => p !== statusPane)
 
-  // Build a map of workerId → paneIdx by scanning all known worker states,
-  // avoiding the fragile paneIdx+1 assumption (indices shift after kills/splits)
-  const workerIdToPaneIdx = new Map<number, number>()
+  const recyclable = new Set(idlePanes)
   for (const task of tasks) {
+    if (recyclable.size >= neededCount) break
     if (task.worker === null) continue
-    const wid = task.worker
-    // pane index is unknown after reordering — match by checking all panes
-    // against each worker's state existence; fall back to order-based mapping
-    // for workers that haven't been recycled yet (initial launch: worker N → pane N-1)
-    const candidatePane = wid - 1
-    if (workerPanes.includes(candidatePane)) {
-      workerIdToPaneIdx.set(wid, candidatePane)
+    if (activeWorkerIds.has(task.worker)) continue
+    const state = readWorkerState(projectDir, task.worker)
+    if (!state?.converged) continue
+    // Try to find this worker's pane by initial mapping (worker N → pane N-1)
+    const candidatePane = task.worker - 1
+    if (workerPanes.includes(candidatePane) && !recyclable.has(candidatePane)) {
+      recyclable.add(candidatePane)
     }
   }
 
-  const recyclable: number[] = []
-  for (const [workerId, paneIdx] of workerIdToPaneIdx) {
-    const state = readWorkerState(projectDir, workerId)
-    // Only recycle if: worker state exists, is converged, and has no active task
-    if (state?.converged && !activeWorkerIds.has(workerId)) {
-      recyclable.push(paneIdx)
-      if (recyclable.length >= neededCount) break
-    }
-  }
-  return recyclable
+  return [...recyclable].slice(0, neededCount)
 }
+
 
 export function runRecover(projectDir: string, existingSession?: string): void {
   // Reset any expired leases back to pending
@@ -79,6 +79,10 @@ export function runRecover(projectDir: string, existingSession?: string): void {
   const pendingTasks = tasks.filter(t => t.status === 'pending')
 
   if (pendingTasks.length === 0) {
+    // Even if no pending tasks, clean up excess idle panes
+    if (existingSession && sessionExists(existingSession)) {
+      cleanupIdlePanes(existingSession, 0)
+    }
     const inProgressCount = tasks.filter(t => t.status === 'in-progress').length
     if (inProgressCount > 0) {
       console.log(`[RECOVER] No pending tasks — ${inProgressCount} still in-progress. Nothing to recover.`)
@@ -103,53 +107,69 @@ export function runRecover(projectDir: string, existingSession?: string): void {
 
   // Try to reuse panes in the existing session
   if (existingSession && sessionExists(existingSession)) {
+    // Clean up excess idle panes first (keep at most pendingTasks.length)
+    cleanupIdlePanes(existingSession, pendingTasks.length)
+
+    // Re-scan after cleanup
     const recyclablePanes = findRecyclablePanes(existingSession, projectDir, pendingTasks.length)
 
-    if (recyclablePanes.length > 0) {
-      console.log(`[RECOVER] Recycling ${recyclablePanes.length} converged pane(s) in session ${existingSession}`)
+    const launchOnPane = (paneIdx: number, workerId: number) => {
+      initWorkerState(projectDir, workerId)
+      sendKeys(existingSession, paneIdx, `cd ${shellQuote(projectDir)}`)
+      if (fs.existsSync(envPath)) {
+        sendKeys(existingSession, paneIdx, `source ${shellQuote(envPath)}`)
+      }
+      sendKeys(existingSession, paneIdx, `export RALPH_WORKER_ID='${workerId}'`)
+      sendKeys(existingSession, paneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
+      sendKeys(existingSession, paneIdx, `claude -p --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
+    }
 
-      for (let i = 0; i < recyclablePanes.length; i++) {
-        const paneIdx = recyclablePanes[i]
-        const workerId = newWorkerIds[i]
+    let launched = 0
+    const cmds = getPaneCommands(existingSession)
 
-        // Kill the old converged pane and open a fresh one in its place
+    // Recycle existing panes
+    for (let i = 0; i < recyclablePanes.length && launched < pendingTasks.length; i++) {
+      const paneIdx = recyclablePanes[i]
+      const workerId = newWorkerIds[launched]
+      const cmd = cmds.get(paneIdx) ?? ''
+
+      if (/^(zsh|bash|fish|sh)$/.test(cmd)) {
+        // Idle shell — reuse directly
+        console.log(`[RECOVER] Reusing idle pane ${paneIdx} for worker ${workerId}`)
+        launchOnPane(paneIdx, workerId)
+      } else {
+        // Active process (converged claude) — kill and replace
+        console.log(`[RECOVER] Recycling converged pane ${paneIdx} for worker ${workerId}`)
         killPane(existingSession, paneIdx)
         splitPane(existingSession)
         applyLayout(existingSession, 'tiled')
-
-        // After splitPane the new pane has focus — get it by active pane index
         const newPaneIdx = getActivePaneIndex(existingSession)
-        if (newPaneIdx === null) continue
-
-        sendKeys(existingSession, newPaneIdx, `cd ${shellQuote(projectDir)}`)
-        if (fs.existsSync(envPath)) {
-          sendKeys(existingSession, newPaneIdx, `source ${shellQuote(envPath)}`)
+        if (newPaneIdx === null) {
+          console.warn(`[RECOVER] Could not get pane index after split — skipping worker ${workerId}`)
+          continue
         }
-        sendKeys(existingSession, newPaneIdx, `export RALPH_WORKER_ID='${workerId}'`)
-        sendKeys(existingSession, newPaneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
-        sendKeys(existingSession, newPaneIdx, `claude --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
+        launchOnPane(newPaneIdx, workerId)
       }
+      launched++
+    }
 
-      // If there are more pending tasks than recyclable panes, spawn extras
-      const remaining = newWorkerIds.slice(recyclablePanes.length)
-      if (remaining.length > 0) {
-        for (const workerId of remaining) {
-          splitPane(existingSession)
-          applyLayout(existingSession, 'tiled')
-          const newPaneIdx = getActivePaneIndex(existingSession)
-          if (newPaneIdx === null) continue
-
-          sendKeys(existingSession, newPaneIdx, `cd ${shellQuote(projectDir)}`)
-          if (fs.existsSync(envPath)) {
-            sendKeys(existingSession, newPaneIdx, `source ${shellQuote(envPath)}`)
-          }
-          sendKeys(existingSession, newPaneIdx, `export RALPH_WORKER_ID='${workerId}'`)
-          sendKeys(existingSession, newPaneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
-          sendKeys(existingSession, newPaneIdx, `claude --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
-        }
+    // Spawn new panes for remaining tasks
+    for (let i = launched; i < pendingTasks.length; i++) {
+      const workerId = newWorkerIds[i]
+      splitPane(existingSession)
+      applyLayout(existingSession, 'tiled')
+      const newPaneIdx = getActivePaneIndex(existingSession)
+      if (newPaneIdx === null) {
+        console.warn(`[RECOVER] Could not get pane index after split — skipping worker ${workerId}`)
+        continue
       }
+      console.log(`[RECOVER] Spawning new pane for worker ${workerId}`)
+      launchOnPane(newPaneIdx, workerId)
+      launched++
+    }
 
-      console.log(`[OK] Recovery started in existing session: ${existingSession}`)
+    if (launched > 0) {
+      console.log(`[OK] Recovery started in existing session: ${existingSession} (${launched} worker(s))`)
       return
     }
   }
@@ -175,4 +195,21 @@ export function runRecover(projectDir: string, existingSession?: string): void {
   console.log(`  tmux attach -t '${recoverSession}'`)
   console.log(`\nTo monitor status:`)
   console.log(`  ralph status --watch\n`)
+}
+
+/**
+ * Remove idle shell panes beyond `keepCount`.
+ * Never removes the status pane.
+ */
+function cleanupIdlePanes(session: string, keepCount: number): void {
+  const statusPane = findStatusPane(session)
+  const idle = findIdlePanes(session).filter(p => p !== statusPane)
+  const toKill = idle.slice(keepCount).sort((a, b) => b - a) // kill highest index first to avoid index shift
+  for (const paneIdx of toKill) {
+    console.log(`[RECOVER] Cleaning up excess idle pane ${paneIdx}`)
+    killPane(session, paneIdx)
+  }
+  if (toKill.length > 0) {
+    applyLayout(session, 'tiled')
+  }
 }

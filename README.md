@@ -32,7 +32,7 @@
 | **Parallel workers** | N workers claim and complete tasks independently in tmux panes |
 | **Task dependencies** | `depends_on` ensures correct ordering — workers wait automatically |
 | **Git worktrees** | `isolated: true` tasks run in dedicated branches, no file conflicts |
-| **Lease system** | Configurable leases (default 5 min) prevent abandoned tasks from blocking progress |
+| **Lease system** | Configurable leases (default 30 min) prevent abandoned tasks from blocking progress |
 | **Agent pipeline** | Worker → Debugger (on failure) → inline Verify → inline Architect review |
 | **Debugger agent** | Called on 3+ failures: diagnoses root cause, proposes ONE fix with file:line evidence |
 | **Inline verification** | Worker re-runs tests fresh and checks every acceptance criterion before converging |
@@ -54,7 +54,7 @@
 4. **Debugger gate** — On 3+ consecutive failures, `/ralph-kage-bunshin-debug` diagnoses root cause and proposes ONE fix
 5. **Verification (inline)** — Worker independently re-runs tests and checks all acceptance criteria against SPEC.md before proceeding
 6. **Architect review (inline)** — Worker performs Critic-gate review against spec with steelmanning. APPROVED writes `converged: true` atomically into `state.json` and `tasks.json`.
-7. **Lease system** — Tasks have a configurable lease (default 5 min). Crashed workers are auto-detected and tasks re-queued.
+7. **Lease system** — Tasks have a configurable lease (default 30 min). Crashed workers are auto-detected and tasks re-queued.
 8. **Auto-recovery** — `ralph status --watch` automatically calls `ralph recover` when expired leases or stuck workers are detected. Recovered workers spawn in the original session by recycling idle (converged) panes — no separate recover session created.
 
 ---
