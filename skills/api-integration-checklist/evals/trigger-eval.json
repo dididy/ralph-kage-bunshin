@@ -1,0 +1,46 @@
+[
+  {
+    "query": "We need to integrate with the Stripe API",
+    "should_trigger": true
+  },
+  {
+    "query": "Check CORS for this external API before we build",
+    "should_trigger": true
+  },
+  {
+    "query": "Run the API integration checklist for our third-party service",
+    "should_trigger": true
+  },
+  {
+    "query": "This project calls external APIs from the browser, what do we need to check?",
+    "should_trigger": true
+  },
+  {
+    "query": "We're adding a new API dependency, run the pre-flight checks",
+    "should_trigger": true
+  },
+  {
+    "query": "Set up a new ralph project",
+    "should_trigger": false
+  },
+  {
+    "query": "Start the worker loop",
+    "should_trigger": false
+  },
+  {
+    "query": "Debug my API endpoint code",
+    "should_trigger": false
+  },
+  {
+    "query": "Write an Express API route",
+    "should_trigger": false
+  },
+  {
+    "query": "Build a REST API",
+    "should_trigger": false
+  },
+  {
+    "query": "My fetch call is failing",
+    "should_trigger": false
+  }
+]

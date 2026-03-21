@@ -49,17 +49,11 @@ export function applyProfile(profileName: string, projectDir: string): void {
 
   let profile: Profile
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
-    if (
-      typeof parsed?.name !== 'string' ||
-      typeof parsed?.description !== 'string' ||
-      typeof parsed?.stack !== 'object' || parsed?.stack === null || Array.isArray(parsed?.stack) ||
-      !Array.isArray(parsed?.claude_md_additions) || !parsed.claude_md_additions.every((r: unknown) => typeof r === 'string') ||
-      !Array.isArray(parsed?.initial_structure) || !parsed.initial_structure.every((d: unknown) => typeof d === 'string')
-    ) {
+    const parsed: unknown = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+    if (!isValidProfile(parsed)) {
       throw new Error('missing required fields')
     }
-    profile = parsed as Profile
+    profile = parsed
   } catch (e) {
     throw new Error(`Invalid profile file "${profileName}": ${e instanceof Error ? e.message : e}`)
   }

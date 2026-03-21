@@ -1,26 +1,39 @@
 {
   "name": "ralph-kage-bunshin",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "AI coding harness — you design, agents forge through the night",
   "author": "Yongjae Lee",
   "license": "Apache-2.0",
-  "keywords": ["cli", "ai", "claude", "tmux", "coding", "automation", "agents"],
+  "keywords": [
+    "cli",
+    "ai",
+    "claude",
+    "tmux",
+    "coding",
+    "automation",
+    "agents"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/dididy/ralph-kage-bunshin"
   },
   "type": "module",
-  "bin": { "ralph": "./dist/index.js" },
+  "bin": {
+    "ralph": "./dist/index.js"
+  },
   "files": [
     "dist/",
     "skills/",
+    ".claude-plugin/",
     "assets/",
     "package.json",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup",
@@ -34,6 +47,7 @@
   },
   "devDependencies": {
     "@types/node": "25.5.0",
+    "@vitest/coverage-v8": "4.1.0",
     "tsup": "8.5.1",
     "tsx": "4.21.0",
     "typescript": "5.9.3",

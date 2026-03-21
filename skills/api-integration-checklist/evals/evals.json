@@ -1,0 +1,261 @@
+[
+  {
+    "eval_id": 0,
+    "eval_name": "api-01-verifies-endpoints-first",
+    "prompt": "Run API integration checklist for https://api.example.com",
+    "setup": "API documentation provided with endpoint URLs",
+    "assertions": [
+      "Curls each documented endpoint",
+      "Checks if response status matches expected",
+      "Verifies parameter names match documentation",
+      "If docs diverge from live API, reports the discrepancy"
+    ]
+  },
+  {
+    "eval_id": 1,
+    "eval_name": "api-02-cors-both-checks",
+    "prompt": "Check CORS for this API",
+    "setup": "API endpoint accessible",
+    "assertions": [
+      "Runs curl with Origin header for standard GET",
+      "Runs curl with OPTIONS method for preflight",
+      "Checks for access-control-allow-origin header on BOTH",
+      "Correctly identifies if simple requests work but custom headers won't"
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "api-03-proxy-decision",
+    "prompt": "API has no CORS support and requires a secret key",
+    "setup": "CORS blocked, secret key required",
+    "assertions": [
+      "Recommends server-side proxy (not dev proxy only)",
+      "Notes that dev proxy doesn't work in production",
+      "Selects appropriate option based on project stack"
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "api-04-secret-key-never-client",
+    "prompt": "We need to use this API key: sk-xxx",
+    "setup": "API requires secret key, project uses Vite",
+    "assertions": [
+      "Does NOT put secret in VITE_ prefixed env var",
+      "Recommends server-side only access",
+      "Mandates proxy if key must stay secret"
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "api-05-outputs-spec-format",
+    "prompt": "Finalize the checklist",
+    "setup": "All steps completed",
+    "assertions": [
+      "Produces ## External Dependencies markdown block",
+      "Includes all fields: CORS, Auth, Proxy, Protocol, Response format, etc.",
+      "No fields are left as placeholder"
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "api-06-timeout-recommendation",
+    "prompt": "What timeouts should we set?",
+    "setup": "API with normal latency",
+    "assertions": [
+      "Recommends 10s for reads, 30s for writes as defaults",
+      "Mentions AbortSignal.timeout",
+      "Documents chosen timeouts for SPEC.md"
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "api-07-undocumented-api-zod",
+    "prompt": "This API has no docs, we reverse-engineered the endpoints",
+    "setup": "API with no OpenAPI spec, unstable response shape",
+    "assertions": [
+      "Recommends runtime validation with zod (not just TypeScript types)",
+      "Does NOT use 'any' for response type",
+      "Suggests writing parser unit tests against observed shape"
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "api-08-response-error-format",
+    "prompt": "Check response format for this API",
+    "setup": "API returns NDJSON",
+    "assertions": [
+      "Identifies Content-Type as NDJSON",
+      "Recommends line-by-line parsing",
+      "Checks error response shape"
+    ]
+  },
+  {
+    "eval_id": 8,
+    "eval_name": "api-09-https-only",
+    "prompt": "Integrate with http://api.example.com",
+    "setup": "API base URL is http:// not https://",
+    "assertions": [
+      "Flags as security issue",
+      "Recommends HTTPS",
+      "Does NOT proceed without warning"
+    ]
+  },
+  {
+    "eval_id": 9,
+    "eval_name": "api-10-session-cookies",
+    "prompt": "API uses session cookies for authentication",
+    "setup": "API uses cookies for auth",
+    "assertions": [
+      "Notes credentials:'include' requirement",
+      "Mentions withCredentials for proxy",
+      "Verifies cookie forwarding"
+    ]
+  },
+  {
+    "eval_id": 10,
+    "eval_name": "api-11-pii-in-responses",
+    "prompt": "API returns user profile data including emails",
+    "setup": "API returns user emails and names",
+    "assertions": [
+      "Notes PII presence",
+      "Recommends no client-side logging/caching of raw responses"
+    ]
+  },
+  {
+    "eval_id": 11,
+    "eval_name": "api-12-origin-restrictions",
+    "prompt": "API restricts access by origin domain",
+    "setup": "API only allows whitelisted domains",
+    "assertions": [
+      "Notes origin restriction",
+      "Recommends testing from actual domain not just localhost"
+    ]
+  },
+  {
+    "eval_id": 12,
+    "eval_name": "api-13-key-rotation",
+    "prompt": "API requires a secret key for access",
+    "setup": "API requires secret key",
+    "assertions": [
+      "Recommends env vars (not hardcoded)",
+      "Documents rotation procedure",
+      "Considers dual-key support"
+    ]
+  },
+  {
+    "eval_id": 13,
+    "eval_name": "api-14-resilience",
+    "prompt": "This API is critical to our app functionality",
+    "setup": "Critical API dependency",
+    "assertions": [
+      "Chooses fallback UI / circuit breaker / graceful degradation",
+      "Documents 'what user sees when API is down'"
+    ]
+  },
+  {
+    "eval_id": 14,
+    "eval_name": "api-15-pagination",
+    "prompt": "API returns paginated list of items",
+    "setup": "API returns paginated results",
+    "assertions": [
+      "Identifies pagination type (cursor/offset/fixed)",
+      "Checks max page size",
+      "Flags if infinite scroll needs pagination from day one"
+    ]
+  },
+  {
+    "eval_id": 15,
+    "eval_name": "api-16-rate-limits-retry",
+    "prompt": "API has rate limiting headers",
+    "setup": "API returns x-ratelimit headers",
+    "assertions": [
+      "Reads rate limit headers",
+      "Recommends exponential backoff with jitter",
+      "Respects Retry-After",
+      "No retry for non-idempotent mutations"
+    ]
+  },
+  {
+    "eval_id": 16,
+    "eval_name": "api-17-caching",
+    "prompt": "API data updates every few minutes",
+    "setup": "API with moderate update frequency",
+    "assertions": [
+      "Chooses SWR/React Query, proxy cache, or none with reasoning"
+    ]
+  },
+  {
+    "eval_id": 17,
+    "eval_name": "api-18-openapi-types",
+    "prompt": "API has an OpenAPI spec at /docs",
+    "setup": "API has OpenAPI/Swagger spec",
+    "assertions": [
+      "Recommends generating types from spec",
+      "NOT using zod for well-documented APIs"
+    ]
+  },
+  {
+    "eval_id": 18,
+    "eval_name": "api-19-mock-strategy",
+    "prompt": "How should we mock this API in tests?",
+    "setup": "API with no CORS, requires auth",
+    "assertions": [
+      "Recommends MSW or vi.mock",
+      "Notes tests must never hit live API",
+      "Defines mock approach"
+    ]
+  },
+  {
+    "eval_id": 19,
+    "eval_name": "api-20-env-variables",
+    "prompt": "Set up environment variables for this API",
+    "setup": "Project needs API key",
+    "assertions": [
+      "Creates .env.example",
+      "Uses correct prefix (NEXT_PUBLIC_ / VITE_ rules)",
+      "Warns about secrets in client-side vars"
+    ]
+  },
+  {
+    "eval_id": 20,
+    "eval_name": "api-21-websocket-sse",
+    "prompt": "API streams updates via SSE",
+    "setup": "API uses Server-Sent Events",
+    "assertions": [
+      "Identifies SSE protocol",
+      "Notes SSE follows standard CORS rules",
+      "Recommends EventSource or ReadableStream parser"
+    ]
+  },
+  {
+    "eval_id": 21,
+    "eval_name": "api-22-blocking-verification",
+    "prompt": "Verify these 3 API endpoints before starting",
+    "setup": "1 of 3 endpoints returns 404",
+    "assertions": [
+      "Does NOT proceed with implementation",
+      "Requires endpoint fix first"
+    ]
+  },
+  {
+    "eval_id": 22,
+    "eval_name": "api-23-common-mistake-postman",
+    "prompt": "API works in Postman but not in the browser",
+    "setup": "API works in curl but CORS blocked",
+    "assertions": [
+      "Notes Postman/curl ignore CORS",
+      "Browser will fail",
+      "Proxy needed"
+    ]
+  },
+  {
+    "eval_id": 23,
+    "eval_name": "api-24-common-mistake-dev-proxy-prod",
+    "prompt": "We set up Vite proxy for the API",
+    "setup": "Vite server.proxy configured",
+    "assertions": [
+      "Warns dev proxy is dev-only",
+      "Requires production proxy solution chosen upfront"
+    ]
+  }
+]

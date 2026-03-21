@@ -1,7 +1,26 @@
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
 import type { Task, WorkerState } from '../types'
 import { loadConfig } from './config'
+
+/**
+ * Write a file atomically: write to a temp file in the same directory,
+ * then rename. rename() is atomic on POSIX, preventing partial reads
+ * when multiple workers write concurrently.
+ */
+function atomicWriteFileSync(filePath: string, data: string): void {
+  const dir = path.dirname(filePath)
+  fs.mkdirSync(dir, { recursive: true })
+  const tmp = path.join(dir, `.tmp.${process.pid}.${crypto.randomBytes(4).toString('hex')}`)
+  try {
+    fs.writeFileSync(tmp, data)
+    fs.renameSync(tmp, filePath)
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch { /* best-effort cleanup */ }
+    throw e
+  }
+}
 
 export function readTasks(projectDir: string): Task[] {
   const filePath = path.join(projectDir, '.ralph', 'tasks.json')
@@ -49,13 +68,12 @@ export function readTasks(projectDir: string): Task[] {
 }
 
 export function writeTasks(projectDir: string, tasks: Task[]): void {
-  const dir = path.join(projectDir, '.ralph')
-  fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, 'tasks.json'), JSON.stringify({ tasks }, null, 2))
+  const filePath = path.join(projectDir, '.ralph', 'tasks.json')
+  atomicWriteFileSync(filePath, JSON.stringify({ tasks }, null, 2))
 }
 
 const WORKER_STATE_REQUIRED_FIELDS = [
-  'worker_id', 'generation', 'converged', 'pathology',
+  'worker_id', 'task', 'generation', 'converged', 'pathology',
   'dod_checklist', 'last_results', 'started_at', 'updated_at',
 ] as const
 
@@ -81,9 +99,8 @@ export function readWorkerState(projectDir: string, workerId: number): WorkerSta
 }
 
 export function writeWorkerState(projectDir: string, workerId: number, state: WorkerState): void {
-  const dir = path.join(projectDir, '.ralph', 'workers', `worker-${workerId}`)
-  fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(state, null, 2))
+  const filePath = path.join(projectDir, '.ralph', 'workers', `worker-${workerId}`, 'state.json')
+  atomicWriteFileSync(filePath, JSON.stringify(state, null, 2))
 }
 
 export function createInitialWorkerState(workerId: number): WorkerState {

@@ -1,0 +1,544 @@
+[
+  {
+    "eval_id": 0,
+    "eval_name": "loop-01-reads-worker-id",
+    "prompt": "[loop starts]",
+    "setup": "RALPH_WORKER_ID=3, tasks.json with pending tasks",
+    "assertions": [
+      "Reads $RALPH_WORKER_ID",
+      "Uses worker ID 3 consistently (not hardcoded 1)",
+      "Worker directories use worker-3/ not worker-1/"
+    ]
+  },
+  {
+    "eval_id": 1,
+    "eval_name": "loop-02-claims-lowest-id",
+    "prompt": "[loop starts]",
+    "setup": "tasks: [{id:1, status:'converged'}, {id:2, status:'pending', depends_on:[1]}, {id:3, status:'pending', depends_on:[1]}]",
+    "assertions": [
+      "Claims task 2 (lowest claimable), not task 3",
+      "Writes status:'in-progress', worker: N, claimed_at, lease_expires_at to tasks.json"
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "loop-03-claim-verification",
+    "prompt": "[loop starts]",
+    "setup": "tasks.json with a pending task",
+    "assertions": [
+      "Waits ~1 second after claiming",
+      "Re-reads tasks.json from disk",
+      "Checks if worker field matches own ID",
+      "Proceeds only if own ID matches"
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "loop-04-respects-depends-on",
+    "prompt": "[loop starts]",
+    "setup": "tasks: [{id:1, status:'in-progress', worker:1}, {id:2, status:'pending', depends_on:[1]}]",
+    "assertions": [
+      "Does NOT claim task 2",
+      "Enters wait loop (sleep 30s, re-check)",
+      "Does NOT proceed with implementation"
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "loop-05-worktree-on-isolated",
+    "prompt": "[claiming isolated task]",
+    "setup": "Git repo, task with isolated: true",
+    "assertions": [
+      "Runs git worktree add with correct branch name",
+      "Branch name follows feat/worker-N-<slug> pattern",
+      "CDs into worktree directory for implementation",
+      "Reads .ralph/ from RALPH_PROJECT_DIR, not worktree"
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "loop-06-reads-mailbox",
+    "prompt": "[after claiming task]",
+    "setup": "Mailbox with unread task_complete and broadcast messages",
+    "assertions": [
+      "Reads .ralph/mailbox/ files",
+      "Skips files ending in .read",
+      "Renames processed files to .read",
+      "Applies broadcast corrections immediately",
+      "Extracts learnings from task_complete messages"
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "loop-07-reads-previous-learnings",
+    "prompt": "[starting implementation]",
+    "setup": "PROGRESS.md with learnings from previous generations",
+    "assertions": [
+      "Reads PROGRESS.md before writing any code",
+      "Does NOT repeat approaches marked as failed in learnings"
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "loop-08-tdd-order",
+    "prompt": "[implementing step 1]",
+    "setup": "Claimed non-UI task",
+    "assertions": [
+      "Writes test file BEFORE implementation file",
+      "Confirms test fails (red) before implementing",
+      "Implements minimum code to pass (green)"
+    ]
+  },
+  {
+    "eval_id": 8,
+    "eval_name": "loop-09-lease-renewal",
+    "prompt": "[mid-loop, about to run tests]",
+    "setup": "Task claimed with lease_expires_at approaching",
+    "assertions": [
+      "Updates lease_expires_at to now + 30 minutes",
+      "Writes to tasks.json before running npm test",
+      "Writes again after test completion"
+    ]
+  },
+  {
+    "eval_id": 9,
+    "eval_name": "loop-10-stagnation-triggers-debug",
+    "prompt": "[test fails for 3rd consecutive time]",
+    "setup": "state.json with consecutive_failures: 2, test about to fail again",
+    "assertions": [
+      "Increments consecutive_failures to 3",
+      "Invokes /ralph-kage-bunshin-debug",
+      "Passes worker ID, project dir, task name, error output"
+    ]
+  },
+  {
+    "eval_id": 10,
+    "eval_name": "loop-11-oscillation-detection",
+    "prompt": "[latest test fails]",
+    "setup": "state.json with last_results: ['fail', 'pass', 'fail', 'pass']",
+    "assertions": [
+      "Detects alternating fail/pass pattern",
+      "Sets pathology.oscillation to true",
+      "Locks the correct approach in CLAUDE.md"
+    ]
+  },
+  {
+    "eval_id": 11,
+    "eval_name": "loop-12-external-service-escalation",
+    "prompt": "[external service keeps failing]",
+    "setup": "Last 3 results are all 'fail:external_service'",
+    "assertions": [
+      "Marks fail:external_service (not just fail)",
+      "Tries approaches in order: direct → proxy → mock fallback",
+      "Does NOT jump to mock immediately",
+      "Runs /api-integration-checklist with new approach"
+    ]
+  },
+  {
+    "eval_id": 12,
+    "eval_name": "loop-13-dod-phase1-fresh-run",
+    "prompt": "[entering DoD check]",
+    "setup": "All implementation done, dod_checklist partially true",
+    "assertions": [
+      "Runs npm test fresh (not trusting previous pass)",
+      "Runs npm run build fresh",
+      "Checks each acceptance criterion individually",
+      "Marks each as VERIFIED/PARTIAL/MISSING"
+    ]
+  },
+  {
+    "eval_id": 13,
+    "eval_name": "loop-14-dod-phase2-self-audit",
+    "prompt": "[entering Phase 2]",
+    "setup": "Phase 1 passed, all VERIFIED",
+    "assertions": [
+      "Records architect_review_started_at",
+      "Reads source code (not just test output)",
+      "Applies Code Correctness Rules from CLAUDE.md",
+      "Steelmans rejection before approving",
+      "Writes converged:true and architect_review atomically"
+    ]
+  },
+  {
+    "eval_id": 14,
+    "eval_name": "loop-15-converge-then-claim-next",
+    "prompt": "[after convergence]",
+    "setup": "Just converged on task 2, task 3 is pending and claimable",
+    "assertions": [
+      "Writes task_complete mailbox message with learnings",
+      "Does NOT exit",
+      "Goes back to 'On Start' and claims task 3",
+      "Starts new loop iteration"
+    ]
+  },
+  {
+    "eval_id": 15,
+    "eval_name": "loop-16-broadcast-on-critical-discovery",
+    "prompt": "[discovers environment issue or API mismatch]",
+    "setup": "Worker discovers API param name is wrong mid-implementation",
+    "assertions": [
+      "Writes broadcast message to .ralph/mailbox/",
+      "Message has type: 'broadcast', to: 'all'",
+      "Does NOT wait for task_complete to share the discovery"
+    ]
+  },
+  {
+    "eval_id": 16,
+    "eval_name": "loop-17-ui-task-e2e-first",
+    "prompt": "[starting UI task implementation]",
+    "setup": "Claimed UI task with browser interaction",
+    "assertions": [
+      "Invokes /playwright-test-generator first",
+      "Writes E2E test before unit tests",
+      "Confirms E2E test fails (red) before implementing"
+    ]
+  },
+  {
+    "eval_id": 17,
+    "eval_name": "loop-18-skill-invocation-check",
+    "prompt": "[about to implement]",
+    "setup": "Task description contains '/ui-reverse-engineering'",
+    "assertions": [
+      "Detects /ui-reverse-engineering in description",
+      "Invokes the skill BEFORE writing implementation code",
+      "Records used_skills in PROGRESS.md"
+    ]
+  },
+  {
+    "eval_id": 18,
+    "eval_name": "loop-19-progress-md-format",
+    "prompt": "[writing progress]",
+    "setup": "End of a generation",
+    "assertions": [
+      "Entry has ## Generation N header",
+      "Contains task:, result:, next:, used_skills:, learnings: fields",
+      "learnings: is never omitted (uses 'none' if nothing learned)"
+    ]
+  },
+  {
+    "eval_id": 19,
+    "eval_name": "loop-20-state-json-update",
+    "prompt": "[updating state after pass]",
+    "setup": "Generation completed with test pass",
+    "assertions": [
+      "generation incremented by 1",
+      "last_results appended with 'pass', kept to max 5",
+      "consecutive_failures reset to 0",
+      "updated_at set to current ISO timestamp",
+      "dod_checklist fields updated accurately"
+    ]
+  },
+  {
+    "eval_id": 20,
+    "eval_name": "loop-21-reads-project-dir",
+    "prompt": "[loop starts]",
+    "setup": "RALPH_PROJECT_DIR=/tmp/project",
+    "assertions": [
+      "Uses $RALPH_PROJECT_DIR for all .ralph/ paths",
+      "Does NOT hardcode paths"
+    ]
+  },
+  {
+    "eval_id": 21,
+    "eval_name": "loop-22-race-loss-behavior",
+    "prompt": "[claim verification fails]",
+    "setup": "After claiming task 2, re-read shows another worker's ID",
+    "assertions": [
+      "Stops immediately",
+      "Discards any work done",
+      "Goes back to find another claimable task",
+      "Does NOT proceed with implementation"
+    ]
+  },
+  {
+    "eval_id": 22,
+    "eval_name": "loop-23-all-converged-exit",
+    "prompt": "[loop starts]",
+    "setup": "All tasks status:'converged'",
+    "assertions": [
+      "Prints completion message",
+      "Exits cleanly",
+      "Does NOT enter wait loop"
+    ]
+  },
+  {
+    "eval_id": 23,
+    "eval_name": "loop-24-all-in-progress-recover-exit",
+    "prompt": "[loop starts]",
+    "setup": "No pending tasks, 2 in-progress tasks by other workers",
+    "assertions": [
+      "Runs ralph recover",
+      "Then exits"
+    ]
+  },
+  {
+    "eval_id": 24,
+    "eval_name": "loop-25-worktree-skip-no-git",
+    "prompt": "[claiming isolated task]",
+    "setup": "isolated:true task, no .git directory",
+    "assertions": [
+      "Does NOT fail",
+      "Logs 'worktree skipped: not a git repo' in PROGRESS.md",
+      "Works in RALPH_PROJECT_DIR"
+    ]
+  },
+  {
+    "eval_id": 25,
+    "eval_name": "loop-26-post-claim-env-verify",
+    "prompt": "[after claiming task]",
+    "setup": "Task depends_on:[1], task 1 converged but package.json missing",
+    "assertions": [
+      "Detects missing files",
+      "Builds/restores them",
+      "Records in PROGRESS.md"
+    ]
+  },
+  {
+    "eval_id": 26,
+    "eval_name": "loop-27-reads-claudemd-specmd",
+    "prompt": "[starting implementation]",
+    "setup": "CLAUDE.md with Code Correctness Rules, SPEC.md with tech stack",
+    "assertions": [
+      "Reads both files",
+      "Respects Code Correctness Rules in implementation"
+    ]
+  },
+  {
+    "eval_id": 27,
+    "eval_name": "loop-28-state-json-init",
+    "prompt": "[loop starts]",
+    "setup": "No state.json exists for this worker",
+    "assertions": [
+      "Creates state.json with all required fields (worker_id, task, generation:0, consecutive_failures:0, last_results:[], pathology, approach_history, dod_checklist, converged:false, timestamps)"
+    ]
+  },
+  {
+    "eval_id": 28,
+    "eval_name": "loop-29-read-library-source",
+    "prompt": "[implementing code that calls library]",
+    "setup": "Task involves using an animation library",
+    "assertions": [
+      "Reads library implementation before writing code that calls it",
+      "Does NOT assume behavior from API name alone"
+    ]
+  },
+  {
+    "eval_id": 29,
+    "eval_name": "loop-30-incremental-visual-verify",
+    "prompt": "[implementing visual changes]",
+    "setup": "UI task with multiple visual changes needed",
+    "assertions": [
+      "Applies one change, checks browser, then applies next",
+      "Does NOT batch multiple visual changes"
+    ]
+  },
+  {
+    "eval_id": 30,
+    "eval_name": "loop-31-api-checklist-initial",
+    "prompt": "[starting implementation]",
+    "setup": "Task description mentions 'fetch from https://api.example.com'",
+    "assertions": [
+      "Invokes /api-integration-checklist before implementing API calls"
+    ]
+  },
+  {
+    "eval_id": 31,
+    "eval_name": "loop-32-playwright-debugger-on-e2e-fail",
+    "prompt": "[E2E test fails]",
+    "setup": "E2E test fails after implementation code written",
+    "assertions": [
+      "Invokes /playwright-debugger to diagnose",
+      "Does NOT blindly retry"
+    ]
+  },
+  {
+    "eval_id": 32,
+    "eval_name": "loop-33-env-gotcha-to-claudemd",
+    "prompt": "[discovers environment gotcha]",
+    "setup": "Discovers proxy config that requires restart",
+    "assertions": [
+      "Appends to CLAUDE.md under '## Environment Notes' immediately",
+      "Does NOT wait until convergence"
+    ]
+  },
+  {
+    "eval_id": 33,
+    "eval_name": "loop-34-read-actual-test-output",
+    "prompt": "[after running tests]",
+    "setup": "npm test run",
+    "assertions": [
+      "Reads tail output",
+      "Parses results",
+      "Does NOT say 'probably passed'"
+    ]
+  },
+  {
+    "eval_id": 34,
+    "eval_name": "loop-35-two-failures-change-direction",
+    "prompt": "[test fails again with same approach]",
+    "setup": "Same approach fails for 2nd consecutive time",
+    "assertions": [
+      "Recognizes approach is wrong (not implementation)",
+      "Changes to different strategy",
+      "Does NOT retry same approach"
+    ]
+  },
+  {
+    "eval_id": 35,
+    "eval_name": "loop-36-runtime-browser-verification",
+    "prompt": "[after tests pass]",
+    "setup": "UI task, tests pass",
+    "assertions": [
+      "Takes before/during/after screenshots",
+      "Measures actual animation duration (no arbitrary sleep)",
+      "Checks for white flash/layout jump/blank frame"
+    ]
+  },
+  {
+    "eval_id": 36,
+    "eval_name": "loop-37-css-entry-point-check",
+    "prompt": "[during implementation]",
+    "setup": "UI task with CSS",
+    "assertions": [
+      "Runs grep for CSS imports in entry files",
+      "Flags if missing"
+    ]
+  },
+  {
+    "eval_id": 37,
+    "eval_name": "loop-38-wonder-loop-pathology",
+    "prompt": "[after 3rd attempt at same goal]",
+    "setup": "approach_history has same goal 3 times",
+    "assertions": [
+      "Sets pathology.wonder_loop to true",
+      "Chooses fundamentally different strategy"
+    ]
+  },
+  {
+    "eval_id": 38,
+    "eval_name": "loop-39-pathology-exit-procedure",
+    "prompt": "[pathology detected]",
+    "setup": "Any pathology detected",
+    "assertions": [
+      "(1) Updates pathology in state.json",
+      "(2) Sets task status to 'pathology' in tasks.json",
+      "(3) Writes PROGRESS.md with 'PATHOLOGY'",
+      "(4) Exits loop"
+    ]
+  },
+  {
+    "eval_id": 39,
+    "eval_name": "loop-40-dod-recheck-task-status",
+    "prompt": "[entering DoD check]",
+    "setup": "Another worker already converged this task",
+    "assertions": [
+      "Detects status:'converged' with different worker ID",
+      "Does NOT continue",
+      "Goes back to claim next task"
+    ]
+  },
+  {
+    "eval_id": 40,
+    "eval_name": "loop-41-dod-e2e-execution",
+    "prompt": "[entering DoD Phase 1]",
+    "setup": "package.json has test:e2e script",
+    "assertions": [
+      "Detects and runs the E2E script",
+      "Reports results"
+    ]
+  },
+  {
+    "eval_id": 41,
+    "eval_name": "loop-42-dod-e2e-reviewer",
+    "prompt": "[entering DoD Phase 1]",
+    "setup": "UI task with Playwright tests",
+    "assertions": [
+      "Invokes /e2e-reviewer",
+      "Fixes flagged issues before converging"
+    ]
+  },
+  {
+    "eval_id": 42,
+    "eval_name": "loop-43-dod-spec-e2e-coverage",
+    "prompt": "[entering DoD Phase 1]",
+    "setup": "SPEC.md has 3 E2E scenarios for this task",
+    "assertions": [
+      "Marks each as COVERED or MISSING",
+      "Does NOT converge if any MISSING"
+    ]
+  },
+  {
+    "eval_id": 43,
+    "eval_name": "loop-44-dod-skill-recheck",
+    "prompt": "[entering DoD check]",
+    "setup": "Task description has /ui-reverse-engineering, PROGRESS.md used_skills doesn't include it",
+    "assertions": [
+      "Goes back and runs the skill",
+      "Does NOT converge without it"
+    ]
+  },
+  {
+    "eval_id": 44,
+    "eval_name": "loop-45-dod-phase2-timeout",
+    "prompt": "[Phase 2 exceeds 10 minutes]",
+    "setup": "Phase 2 cannot reach verdict in time",
+    "assertions": [
+      "Writes architect_review_timeout:true to state.json",
+      "Sets task status to 'pathology'",
+      "Exits"
+    ]
+  },
+  {
+    "eval_id": 45,
+    "eval_name": "loop-46-dod-phase2-rejection",
+    "prompt": "[Phase 2 rejects]",
+    "setup": "Phase 2 self-audit finds a gap",
+    "assertions": [
+      "Writes architect_review status:'rejected' with notes",
+      "Fixes gaps",
+      "Re-runs Phase 1 from scratch"
+    ]
+  },
+  {
+    "eval_id": 46,
+    "eval_name": "loop-47-worktree-merge-cleanup",
+    "prompt": "[after convergence of isolated task]",
+    "setup": "Isolated task converged, git remote exists",
+    "assertions": [
+      "Pushes branch",
+      "Creates PR via gh",
+      "Removes worktree",
+      "Deletes local branch"
+    ]
+  },
+  {
+    "eval_id": 47,
+    "eval_name": "loop-48-task-complete-mailbox-schema",
+    "prompt": "[after convergence]",
+    "setup": "Task converged",
+    "assertions": [
+      "Message has from, to:'all', type:'task_complete', subject, body, learnings array (non-empty if learnings exist), timestamp"
+    ]
+  },
+  {
+    "eval_id": 48,
+    "eval_name": "loop-49-never-disable-tests",
+    "prompt": "[test fails]",
+    "setup": "Failing test",
+    "assertions": [
+      "Does NOT add .skip or .only",
+      "Does NOT delete test",
+      "Fixes implementation instead"
+    ]
+  },
+  {
+    "eval_id": 49,
+    "eval_name": "loop-50-stays-within-scope",
+    "prompt": "[implementing task]",
+    "setup": "Task says 'add login form', obvious opportunity to add OAuth",
+    "assertions": [
+      "Implements only login form",
+      "Does NOT add unrequested features"
+    ]
+  }
+]

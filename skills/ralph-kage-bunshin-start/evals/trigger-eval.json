@@ -1,0 +1,54 @@
+[
+  {
+    "query": "I want to set up a new ralph project",
+    "should_trigger": true
+  },
+  {
+    "query": "Help me start a new ralph-kage-bunshin project",
+    "should_trigger": true
+  },
+  {
+    "query": "Let's plan a new project with ralph workers",
+    "should_trigger": true
+  },
+  {
+    "query": "I need to create SPEC.md and tasks.json for a new project",
+    "should_trigger": true
+  },
+  {
+    "query": "Set up ralph for this codebase",
+    "should_trigger": true
+  },
+  {
+    "query": "I want to clone this website using ralph",
+    "should_trigger": true
+  },
+  {
+    "query": "Generate a task plan for building an e-commerce site with parallel workers",
+    "should_trigger": true
+  },
+  {
+    "query": "Run the ralph worker loop",
+    "should_trigger": false
+  },
+  {
+    "query": "Check the status of my ralph workers",
+    "should_trigger": false
+  },
+  {
+    "query": "Debug why worker 3 is failing",
+    "should_trigger": false
+  },
+  {
+    "query": "Review worker 2's implementation",
+    "should_trigger": false
+  },
+  {
+    "query": "How do I use ralph?",
+    "should_trigger": false
+  },
+  {
+    "query": "What is ralph-kage-bunshin?",
+    "should_trigger": false
+  }
+]

@@ -31,6 +31,7 @@ export function launchWorkersOnPanes(
     const paneIdx = paneIndices[i]
 
     initWorkerState(projectDir, workerId)
+    setPaneTitle(sessionName, paneIdx, `ralph-worker-${workerId}`)
 
     sendKeys(sessionName, paneIdx, `cd ${shellQuote(projectDir)}`)
 
@@ -41,7 +42,7 @@ export function launchWorkersOnPanes(
     // Inject worker ID and project dir so the worker can identify itself and create worktrees
     sendKeys(sessionName, paneIdx, `export RALPH_WORKER_ID='${workerId}'`)
     sendKeys(sessionName, paneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
-    sendKeys(sessionName, paneIdx, `claude -p --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
+    sendKeys(sessionName, paneIdx, `claude -n "ralph-worker-${workerId}" --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
   }
 }
 

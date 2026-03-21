@@ -6,7 +6,7 @@ import { runRecover } from './commands/recover'
 import { printStatus, printMessages } from './commands/status'
 import { listProfiles, applyProfile } from './commands/profile'
 import { setSecret, unsetSecret, listSecrets } from './commands/secrets'
-import { installSkills } from './commands/install-skills'
+import { printReport } from './commands/report'
 
 const program = new Command()
 
@@ -150,11 +150,10 @@ secretsCmd
   })
 
 program
-  .command('install-skills')
-  .description('Copy skill files to ~/.claude/skills/')
-  .option('--no-overwrite', 'Skip existing files instead of overwriting')
-  .action(async (opts: { overwrite?: boolean }) => {
-    await installSkills({ noOverwrite: opts.overwrite === false })
+  .command('report')
+  .description('Show per-worker summary with task, generations, time, cost')
+  .action(() => {
+    printReport(process.cwd())
   })
 
 program.parse()

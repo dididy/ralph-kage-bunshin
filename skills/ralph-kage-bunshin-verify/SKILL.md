@@ -1,6 +1,6 @@
 ---
 name: ralph-kage-bunshin-verify
-description: Standalone manual-use tool — independently re-runs tests and checks acceptance criteria for a given worker task, returns PASS/FAIL/INCOMPLETE
+description: Use to independently validate a ralph worker's completed task without changing state — re-runs tests and build, checks each acceptance criterion and E2E scenario, returns PASS/FAIL/INCOMPLETE verdict. Read-only; does not write to state.json or tasks.json (use /ralph-kage-bunshin-architect to approve/reject).
 ---
 
 # /ralph-kage-bunshin-verify — Ralph Verifier Skill
@@ -32,6 +32,8 @@ npm run build 2>&1 | tail -20     # fresh build
 ```
 
 For E2E: check `package.json` `scripts` for a Playwright-specific script (keys containing `e2e`, `playwright`, etc. — distinct from `npm test` which runs Vitest). Run it if present; skip only if none exists.
+
+**E2E detection**: Check `package.json` `scripts` for keys containing `e2e`, `playwright`, `pw`, or `cypress`. If multiple E2E scripts exist, run the one most relevant to the task. If none exist and the task is a UI task, note this as a gap in the report.
 
 For each acceptance criterion in the task:
 - Mark as VERIFIED (test exists and passes), PARTIAL (test exists but incomplete), or MISSING (no test)
@@ -72,9 +74,11 @@ Verdict: PASS | FAIL | INCOMPLETE
 - **FAIL**: Tests or build failing → worker must fix before calling Architect
 - **INCOMPLETE**: Tests pass but criteria/E2E not fully covered → worker must add missing tests
 
+**INCOMPLETE is not a soft PASS** — it means the worker has more work to do. Do not upgrade to PASS because 'most things work'. Every criterion matters.
+
 ## Rules
 
 - Run commands yourself — never trust the worker's reported output
 - Read-only — you do NOT write source files or tests
-- Specific gaps only — "tests need improvement" is not acceptable feedback
+- Specific gaps only — "tests need improvement" is not acceptable feedback. Each gap must include: (1) which criterion or scenario is affected, (2) file:line where the issue is or where a test should exist, (3) what the expected behavior should be. Example: 'Criterion: user can reset password — MISSING: no test in tests/auth.test.ts for the reset flow, expected test calling resetPassword() and verifying email sent'
 - You do NOT write to state.json or tasks.json — that is Architect's job

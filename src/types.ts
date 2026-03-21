@@ -23,7 +23,7 @@ export interface WorkerState {
   task: string
   generation: number
   consecutive_failures: number
-  last_results: ('pass' | 'fail')[]
+  last_results: ('pass' | 'fail' | 'fail:external_service')[]
   pathology: {
     stagnation: boolean
     oscillation: boolean
@@ -38,6 +38,12 @@ export interface WorkerState {
   started_at: string
   updated_at: string
   architect_review?: ArchitectReview
+  cost?: {
+    total_usd: number
+    total_input_tokens: number
+    total_output_tokens: number
+    api_duration_ms: number
+  }
 }
 
 export interface RalphConfig {

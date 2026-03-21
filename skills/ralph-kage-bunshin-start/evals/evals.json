@@ -1,0 +1,391 @@
+[
+  {
+    "eval_id": 0,
+    "eval_name": "start-01-greenfield-detection",
+    "prompt": "I want to build a todo app with ralph",
+    "setup": "Empty directory with no files",
+    "assertions": [
+      "Output mentions 'greenfield'",
+      "Does NOT ask about resuming existing spec",
+      "Asks the first Goal dimension question"
+    ]
+  },
+  {
+    "eval_id": 1,
+    "eval_name": "start-02-brownfield-detection",
+    "prompt": "Set up ralph for this existing project",
+    "setup": "Directory with package.json, src/, .git/",
+    "assertions": [
+      "Output mentions 'brownfield'",
+      "Reads existing package.json or source files before interviewing"
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "start-03-existing-spec-resume",
+    "prompt": "Start ralph setup",
+    "setup": "Directory with .ralph/SPEC.md and .ralph/tasks.json already present",
+    "assertions": [
+      "Asks whether to resume or start over",
+      "Does NOT silently overwrite existing files"
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "start-04-dimension-tracking",
+    "prompt": "I want to build a chat app. / The primary user is developers. / It uses React and Supabase.",
+    "setup": "Empty directory",
+    "assertions": [
+      "After each answer, shows [Goal ✓/∙∙/✗] [Constraints ✓/∙∙/✗] [Criteria ✓/∙∙/✗] status",
+      "Targets the weakest dimension next",
+      "Asks ONE question at a time, not multiple"
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "start-05-one-question-at-a-time",
+    "prompt": "Build a weather dashboard",
+    "setup": "Empty directory",
+    "assertions": [
+      "Response contains exactly ONE question mark (or one question block)",
+      "Does NOT list multiple questions to answer at once"
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "start-06-api-checklist-trigger",
+    "prompt": "I want to build a weather dashboard using the OpenWeatherMap API",
+    "setup": "Empty directory",
+    "assertions": [
+      "During constraint phase, invokes or mentions /api-integration-checklist",
+      "Records CORS/proxy decision"
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "start-07-tasks-have-descriptions",
+    "prompt": "Approved, write the files",
+    "setup": "Complete interview finished",
+    "assertions": [
+      "Every task object in tasks.json has a 'description' field",
+      "No description is empty string or null",
+      "Descriptions contain enough context for an independent worker"
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "start-08-depends-on-waves",
+    "prompt": "Looks good, write it",
+    "setup": "Interview complete, multi-task project",
+    "assertions": [
+      "Task 1 (setup) has no depends_on",
+      "Subsequent tasks have depends_on: [1] at minimum",
+      "Wave display matches the depends_on graph",
+      "Worker recommendation equals max tasks in any single wave"
+    ]
+  },
+  {
+    "eval_id": 8,
+    "eval_name": "start-09-isolated-flag",
+    "prompt": "Write the files",
+    "setup": "Interview for project with multiple parallel UI tasks",
+    "assertions": [
+      "Tasks in the same wave that could touch overlapping files have isolated: true",
+      "isolated flag is NOT set on sequential tasks with no overlap"
+    ]
+  },
+  {
+    "eval_id": 9,
+    "eval_name": "start-10-no-auto-ralph-team",
+    "prompt": "Approved, write everything",
+    "setup": "Approved interview",
+    "assertions": [
+      "Prints '[OK] .ralph/SPEC.md written' etc.",
+      "Prints 'ralph team N' as instruction for the user",
+      "Does NOT execute ralph team automatically"
+    ]
+  },
+  {
+    "eval_id": 10,
+    "eval_name": "start-11-e2e-distributed",
+    "prompt": "Write the spec and tasks",
+    "setup": "UI project with multiple E2E scenarios",
+    "assertions": [
+      "No single 'write all E2E tests' task exists",
+      "E2E scenarios appear in individual task descriptions",
+      "SPEC.md E2E section maps scenarios to task IDs"
+    ]
+  },
+  {
+    "eval_id": 11,
+    "eval_name": "start-12-clone-url-detection",
+    "prompt": "Clone the landing page at https://example.com using ralph",
+    "setup": "Empty directory",
+    "assertions": [
+      "Checks for agent-browser installation",
+      "Attempts to analyze the reference URL",
+      "Task descriptions include /ui-reverse-engineering"
+    ]
+  },
+  {
+    "eval_id": 12,
+    "eval_name": "start-13-reads-existing-claudemd",
+    "prompt": "Start ralph setup",
+    "setup": "Directory with CLAUDE.md containing project-specific constraints",
+    "assertions": [
+      "Reads CLAUDE.md before interviewing",
+      "Incorporates existing constraints from CLAUDE.md into the interview"
+    ]
+  },
+  {
+    "eval_id": 13,
+    "eval_name": "start-14-announces-project-type",
+    "prompt": "I want to build a todo app",
+    "setup": "Empty directory",
+    "assertions": [
+      "Output contains 'Project type: greenfield' or 'Project type: brownfield'",
+      "Output contains announcement of structured interview or dimension tracking intro"
+    ]
+  },
+  {
+    "eval_id": 14,
+    "eval_name": "start-15-start-over-confirms-delete",
+    "prompt": "Start over",
+    "setup": ".ralph/SPEC.md exists, user chooses 'start over'",
+    "assertions": [
+      "Asks for explicit confirmation before overwriting existing spec",
+      "Does NOT silently delete .ralph/SPEC.md"
+    ]
+  },
+  {
+    "eval_id": 15,
+    "eval_name": "start-16-goal-before-constraints",
+    "prompt": "I want to build a todo app. / stuff",
+    "setup": "Empty directory, user gives vague 1-word answer to first goal question",
+    "assertions": [
+      "Asks a follow-up Goal question to clarify the vague answer",
+      "Does NOT jump to tech stack or Constraints questions"
+    ]
+  },
+  {
+    "eval_id": 16,
+    "eval_name": "start-17-react-best-practices-reference",
+    "prompt": "I want to use React with Next.js",
+    "setup": "Interview in progress, user specifies stack",
+    "assertions": [
+      "Mentions or invokes vercel-react-best-practices skill",
+      "Locks data fetching pattern in SPEC.md"
+    ]
+  },
+  {
+    "eval_id": 17,
+    "eval_name": "start-18-options-with-tradeoffs",
+    "prompt": "I need a database",
+    "setup": "Interview in Constraints phase",
+    "assertions": [
+      "Presents at least 2 options with pros and cons",
+      "Includes a recommendation among the options"
+    ]
+  },
+  {
+    "eval_id": 18,
+    "eval_name": "start-19-min-done-criteria",
+    "prompt": "It should work correctly",
+    "setup": "Interview in Criteria phase, user gives only 1 vague criterion",
+    "assertions": [
+      "Does NOT mark Criteria dimension as complete",
+      "Pushes for more specific and testable done criteria"
+    ]
+  },
+  {
+    "eval_id": 19,
+    "eval_name": "start-20-min-e2e-scenarios",
+    "prompt": "User logs in and sees dashboard",
+    "setup": "Interview in Criteria phase, user describes only 1 flow",
+    "assertions": [
+      "Asks for more E2E scenarios",
+      "Criteria dimension stays partial, not complete"
+    ]
+  },
+  {
+    "eval_id": 20,
+    "eval_name": "start-21-rejects-vague-criteria",
+    "prompt": "It should work well",
+    "setup": "Interview in Criteria phase",
+    "assertions": [
+      "Pushes back with something like 'How would you test that?'",
+      "Does NOT accept the vague criterion as-is"
+    ]
+  },
+  {
+    "eval_id": 21,
+    "eval_name": "start-22-gap-analysis-loop",
+    "prompt": "Continue the interview",
+    "setup": "Goal ✓, Constraints ∙∙ (partial), Criteria ✗ (empty)",
+    "assertions": [
+      "Targets Criteria (the weakest dimension) next",
+      "Does NOT target Constraints before addressing the empty Criteria"
+    ]
+  },
+  {
+    "eval_id": 22,
+    "eval_name": "start-23-early-exit-warning",
+    "prompt": "Just go, that's enough",
+    "setup": "Goal ✓, Constraints ✗ (empty), Criteria ✗ (empty)",
+    "assertions": [
+      "Shows warning that Constraints and/or Criteria are still incomplete",
+      "Asks to proceed anyway rather than silently continuing"
+    ]
+  },
+  {
+    "eval_id": 23,
+    "eval_name": "start-24-phase3-architecture-confirmation",
+    "prompt": "Continue",
+    "setup": "All dimensions complete (Goal ✓, Constraints ✓, Criteria ✓)",
+    "assertions": [
+      "Displays architecture summary box",
+      "Asks 'Does this accurately capture what we decided?' or similar confirmation",
+      "Waits for user approval before proceeding"
+    ]
+  },
+  {
+    "eval_id": 24,
+    "eval_name": "start-25-phase3-no-re-exploration",
+    "prompt": "Continue to confirmation",
+    "setup": "Stack already decided as React + Supabase in Phase 1",
+    "assertions": [
+      "Does NOT present new A/B/C options for stack choices",
+      "Only confirms existing choices already made"
+    ]
+  },
+  {
+    "eval_id": 25,
+    "eval_name": "start-26-phase4-plan-approval",
+    "prompt": "Looks good, proceed",
+    "setup": "Architecture confirmed in Phase 3",
+    "assertions": [
+      "Displays spec and task list in prescribed format",
+      "Asks for approval before writing files",
+      "Does NOT write .ralph/SPEC.md or tasks.json before approval"
+    ]
+  },
+  {
+    "eval_id": 26,
+    "eval_name": "start-27-phase4-revision-loop",
+    "prompt": "Change task 3 to depend on task 2",
+    "setup": "Phase 4 plan displayed, user requests modification",
+    "assertions": [
+      "Revises the plan with the requested change",
+      "Re-displays the updated plan",
+      "Asks for approval again"
+    ]
+  },
+  {
+    "eval_id": 27,
+    "eval_name": "start-28-specmd-all-sections",
+    "prompt": "Approved, write the files",
+    "setup": "Files written after full approval",
+    "assertions": [
+      "SPEC.md contains ## What section",
+      "SPEC.md contains ## What NOT section",
+      "SPEC.md contains ## Architecture section",
+      "SPEC.md contains ## Tech Stack section",
+      "SPEC.md contains ## Done section",
+      "SPEC.md contains ## E2E Test Scenarios section",
+      "SPEC.md contains ## External Dependencies section"
+    ]
+  },
+  {
+    "eval_id": 28,
+    "eval_name": "start-29-claudemd-content",
+    "prompt": "Approved, write the files",
+    "setup": "Files written after full approval",
+    "assertions": [
+      "CLAUDE.md contains How to Work section",
+      "CLAUDE.md contains Testing section",
+      "CLAUDE.md contains Code Correctness Rules section",
+      "CLAUDE.md contains Definition of Done section",
+      "CLAUDE.md contains Convergence Condition section"
+    ]
+  },
+  {
+    "eval_id": 29,
+    "eval_name": "start-30-task-granularity",
+    "prompt": "I want user auth with social login",
+    "setup": "User wants a complex feature",
+    "assertions": [
+      "Task is split into multiple sub-tasks (e.g., data model, core logic, API/UI)",
+      "Does NOT create one monolithic task for the entire feature"
+    ]
+  },
+  {
+    "eval_id": 30,
+    "eval_name": "start-31-setup-task-always-first",
+    "prompt": "Write the files",
+    "setup": "Greenfield project, files being written",
+    "assertions": [
+      "Task 1 is 'Project setup' or equivalent with no depends_on",
+      "All other tasks have depends_on that includes 1"
+    ]
+  },
+  {
+    "eval_id": 31,
+    "eval_name": "start-32-transition-reverse-engineering",
+    "prompt": "Clone this site, it has lots of animations: https://example-animated.com",
+    "setup": "Clone project with animations detected",
+    "assertions": [
+      "Animation-specific tasks include /transition-reverse-engineering in description",
+      "Does NOT use only /ui-reverse-engineering for animation tasks"
+    ]
+  },
+  {
+    "eval_id": 32,
+    "eval_name": "start-33-reference-url-in-spec",
+    "prompt": "Clone the landing page at https://example.com",
+    "setup": "Clone project with user-provided URL",
+    "assertions": [
+      "SPEC.md contains ## Reference section",
+      "Reference section includes the provided URL https://example.com"
+    ]
+  },
+  {
+    "eval_id": 33,
+    "eval_name": "start-34-output-includes-tmux-status",
+    "prompt": "Approved, write everything",
+    "setup": "Files written after approval",
+    "assertions": [
+      "Output contains 'tmux attach -t ralph-' instruction",
+      "Output contains 'ralph status --watch' instruction"
+    ]
+  },
+  {
+    "eval_id": 34,
+    "eval_name": "start-35-typescript-default",
+    "prompt": "Build me a web app",
+    "setup": "No stack specified by user",
+    "assertions": [
+      "TypeScript is included in tech stack by default",
+      "Does NOT default to plain JavaScript"
+    ]
+  },
+  {
+    "eval_id": 35,
+    "eval_name": "start-36-vitest-playwright-default",
+    "prompt": "Build me a web app",
+    "setup": "No testing preference specified by user",
+    "assertions": [
+      "Vitest is included as the unit testing framework",
+      "Playwright is included as the E2E testing framework"
+    ]
+  },
+  {
+    "eval_id": 36,
+    "eval_name": "start-37-agent-browser-for-website",
+    "prompt": "Make it look like https://stripe.com/payments",
+    "setup": "User mentions a reference site during any phase",
+    "assertions": [
+      "Checks for agent-browser availability",
+      "Uses agent-browser for site analysis, not MCP Playwright"
+    ]
+  }
+]

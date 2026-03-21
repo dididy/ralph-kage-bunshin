@@ -1,6 +1,6 @@
 ---
 name: ralph-kage-bunshin-start
-description: Use when setting up a new ralph-kage-bunshin project — runs a dimension-based interview to generate SPEC.md, tasks.json, and CLAUDE.md
+description: Use when the user wants to set up, plan, or initialize a new ralph-kage-bunshin project — runs a dimension-based interview to produce SPEC.md, tasks.json (with dependency waves), and CLAUDE.md so workers can start
 ---
 
 # /ralph-kage-bunshin-start — Ralph Project Setup Skill
@@ -18,6 +18,18 @@ Before asking anything, explore the environment:
 > "A spec already exists for this project. Resume from where you left off, or start over?"
 > - **Resume**: read the existing SPEC.md and tasks.json, then pick up from the first incomplete dimension
 > - **Start over**: confirm before deleting — "This will overwrite the existing spec. Are you sure?"
+
+### UI Clone Detection (before interview)
+
+**If the user provides a URL and mentions cloning/copying/replicating a site:**
+
+1. Check if `agent-browser` is installed globally (`which agent-browser`). If not, prompt the user to install it: `npm install -g @anthropic-ai/agent-browser`
+2. Launch `agent-browser` to explore the reference site
+3. Capture: page structure, sections, navigation, key interactions, animations, responsive behavior
+4. Use this analysis to inform the interview — pre-fill Goal dimension with observed site purpose and user journeys
+5. Record findings so tasks can be scoped accurately
+
+**This step is mandatory for clone projects.** Do not skip it or substitute with MCP Playwright. agent-browser provides richer context for understanding the full site.
 
 Announce:
 > Project type: {greenfield | brownfield}
@@ -48,6 +60,10 @@ Legend: ✓ = complete, ∙∙ = partial, ✗ = not started
 - "Walk me through the single most important action a user takes with this product."
 - "Why are you building this now? What problem does it solve?"
 
+Ask these ONE AT A TIME — never list multiple questions in a single response.
+
+Do NOT move to Dimension 2 until Goal is at least ∙∙ (partial). Early tech stack questions without a clear goal produce unfocused specs.
+
 ### Dimension 2 — Constraint Clarity
 
 **Complete when:**
@@ -59,6 +75,8 @@ Legend: ✓ = complete, ∙∙ = partial, ✗ = not started
 - "What are you explicitly NOT building this time — what's deferred to later?"
 - "Do you need any external services (Auth, DB, payments, etc.)?"
 - "Do you need mobile support? Any performance requirements?"
+
+Ask these ONE AT A TIME — never list multiple questions in a single response.
 
 **If the user mentions any external API:** run `/api-integration-checklist` before confirming the stack. Record the CORS/proxy decision in SPEC.md `## External Dependencies`. Do not skip this — CORS failures discovered at runtime are not recoverable without an architecture change.
 
@@ -86,6 +104,8 @@ Recommendation: A (reason: ...)
 - "Walk me through 2-3 core flows a user must be able to complete."
 - "What edge cases or failure scenarios must be handled?"
 - "Any non-functional requirements — performance, accessibility, SEO?"
+
+Ask these ONE AT A TIME — never list multiple questions in a single response.
 
 ---
 
@@ -216,11 +236,11 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 ```
 
 **Task rules:**
-- Every task **must** have a `description` field — a worker's only context is this description. Empty or missing descriptions are not allowed.
+- Every task **must** have a `description` field — a worker's only context is this description. Empty or missing descriptions are not allowed. Each description must be self-contained — a worker reading ONLY this description (not SPEC.md or other tasks) must understand what to build, what tests to write, and what 'done' means for this task.
 - `depends_on` tasks are only claimable after all listed tasks are `"converged"`. Tasks with no `depends_on` are claimable immediately and run in parallel with each other.
-- `isolated: true` **must** be set on any task that runs in parallel with another task that touches the same files (src/, package.json, config files). When in doubt, set `isolated: true`. Omitting it on parallel tasks risks merge conflicts.
+- `isolated: true` **must** be set on any task that runs in parallel with another task that touches the same files (src/, package.json, config files). When in doubt, set `isolated: true`. Omitting it on parallel tasks risks merge conflicts. Rule of thumb: if two tasks in the same wave both modify files under `src/`, they should both be `isolated: true`. Only omit `isolated` when tasks are truly independent (e.g., one writes docs, another writes code).
 - Each task completable in one focused session (~1-3 hours)
-- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that makes it first runnable end-to-end. Include the assigned E2E scenario(s) in that task's `description`. Never create a single "write all E2E tests" task at the end.
+- **E2E scenarios must be distributed across tasks** — assign each Playwright scenario to the task that makes it first runnable end-to-end. Include the assigned E2E scenario(s) in that task's `description`. Never create a single "write all E2E tests" task at the end. ❌ NEVER: `{ id: 5, name: 'Write E2E tests', description: 'Write all Playwright tests for the project' }` — this defeats parallel execution. Each task owns its own E2E scenarios.
 - **Task granularity**: if a feature is large, split into (a) data model + schema, (b) core logic, (c) API/UI layer. When unsure: split rather than merge.
 - Always include a setup task (id: 1) if the project needs initial scaffolding. All other tasks `depends_on: [1]`.
 - A **wave** is a set of tasks that can start in parallel once their `depends_on` tasks are all converged. Waves are sequential — wave 2 starts after wave 1 finishes. Worker recommendation = max tasks in any single wave. Example: wave 1 has 1 task, wave 2 has 2 tasks → max parallel = 2 → `ralph team 2`.
@@ -302,3 +322,4 @@ To monitor status:
 - **Never skip Phase 4 approval** — spec must be approved before writing files
 - **TypeScript always** — unless user explicitly opts out
 - **Vitest + Playwright always** — default testing stack
+- **Browser analysis: agent-browser first** — whenever you need to explore, analyze, or inspect a live website during any phase, use `agent-browser`. If not installed, prompt the user to run `npm install -g @anthropic-ai/agent-browser`.

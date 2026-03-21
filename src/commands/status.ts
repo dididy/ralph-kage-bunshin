@@ -22,23 +22,24 @@ export interface RalphStatus {
 
 export function getStatus(projectDir: string): RalphStatus {
   const tasks = readTasks(projectDir)
-  const assignedTasks = tasks.filter(t => t.worker !== null)
+  const assignedTasks = tasks.flatMap(t =>
+    t.worker !== null ? [{ ...t, worker: t.worker }] : []
+  )
 
   const workers: WorkerStatus[] = assignedTasks.map(task => {
-    const state = readWorkerState(projectDir, task.worker!)
+    const state = readWorkerState(projectDir, task.worker)
     if (!state) {
       console.warn(`[WARN] Could not read state for worker-${task.worker}`)
       return {
-        workerId: task.worker!, task: task.name,
+        workerId: task.worker, task: task.name,
         generation: 0, converged: false,
         hasPathology: false, pathologyType: null, elapsedMinutes: 0,
         architectStatus: null,
       }
     }
 
-    const elapsed = Math.floor(
-      (Date.now() - new Date(state.started_at).getTime()) / 60000
-    )
+    const startTime = new Date(state.started_at).getTime()
+    const elapsed = isNaN(startTime) ? 0 : Math.floor((Date.now() - startTime) / 60000)
     const pathologyType = state.pathology.stagnation ? 'Stagnation'
       : state.pathology.oscillation ? 'Oscillation'
       : state.pathology.wonder_loop ? 'WonderLoop'

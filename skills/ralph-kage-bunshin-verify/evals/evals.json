@@ -1,0 +1,191 @@
+[
+  {
+    "eval_id": 0,
+    "eval_name": "verify-01-runs-tests-fresh",
+    "prompt": "Verify worker 2's task 'auth-login'",
+    "setup": "Worker claims task is done, state.json shows dod_checklist all true",
+    "assertions": [
+      "Runs 'npm test' (not trusting worker output)",
+      "Runs 'npm run build' (not trusting worker output)",
+      "Reports actual test/build results"
+    ]
+  },
+  {
+    "eval_id": 1,
+    "eval_name": "verify-02-checks-e2e-script",
+    "prompt": "Verify worker 1",
+    "setup": "package.json has 'test:e2e' script",
+    "assertions": [
+      "Checks package.json scripts for e2e/playwright keywords",
+      "Runs the E2E script if found",
+      "Skips gracefully if no E2E script exists"
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "verify-03-criterion-verification",
+    "prompt": "Verify worker 3's task",
+    "setup": "Task has 3 acceptance criteria in tasks.json",
+    "assertions": [
+      "Lists each criterion separately",
+      "Marks each as VERIFIED, PARTIAL, or MISSING",
+      "PARTIAL means test exists but incomplete"
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "verify-04-output-format",
+    "prompt": "Verify worker 2",
+    "setup": "Verification complete",
+    "assertions": [
+      "Header: 'VERIFIER REPORT — worker-N: [task name]'",
+      "Tests: PASS/FAIL line",
+      "Build: PASS/FAIL line",
+      "Acceptance Criteria section with checkboxes",
+      "Verdict: PASS/FAIL/INCOMPLETE"
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "verify-05-incomplete-verdict",
+    "prompt": "Verify worker 1",
+    "setup": "npm test passes, but 1 of 3 criteria has no test",
+    "assertions": [
+      "Verdict is INCOMPLETE (not PASS)",
+      "Specific gaps listed with file:line or missing test description",
+      "Does NOT round up to PASS"
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "verify-06-read-only",
+    "prompt": "Verify worker 2's task",
+    "setup": "Verification complete with PASS verdict",
+    "assertions": [
+      "Does NOT modify state.json",
+      "Does NOT modify tasks.json",
+      "Does NOT set converged: true",
+      "Only produces a report"
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "verify-07-specific-gaps",
+    "prompt": "Verify worker 3",
+    "setup": "Worker missing an edge case test",
+    "assertions": [
+      "Gaps include file:line or specific test description",
+      "Does NOT say 'tests need improvement'",
+      "Each gap is actionable"
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "verify-08-e2e-scenario-coverage",
+    "prompt": "Verify worker 1's task",
+    "setup": "SPEC.md has 3 E2E scenarios for this task",
+    "assertions": [
+      "Lists each scenario individually",
+      "Marks each as COVERED or MISSING",
+      "Checks E2E scenarios, not just acceptance criteria"
+    ]
+  },
+  {
+    "eval_id": 8,
+    "eval_name": "verify-09-runtime-visual-check",
+    "prompt": "Verify worker 2's UI task",
+    "setup": "UI task, PROGRESS.md has no screenshot evidence",
+    "assertions": [
+      "Marks runtime visual verification as MISSING in report"
+    ]
+  },
+  {
+    "eval_id": 9,
+    "eval_name": "verify-10-runtime-visual-failed",
+    "prompt": "Verify worker 3's UI task",
+    "setup": "PROGRESS.md notes 'white flash in during.png' with no fix recorded",
+    "assertions": [
+      "Marks as FAILED",
+      "Includes visual defect in gaps"
+    ]
+  },
+  {
+    "eval_id": 10,
+    "eval_name": "verify-11-fail-verdict",
+    "prompt": "Verify worker 1's task",
+    "setup": "npm test exits with error",
+    "assertions": [
+      "Verdict is FAIL (not INCOMPLETE)",
+      "Tells worker to fix tests before calling Architect"
+    ]
+  },
+  {
+    "eval_id": 11,
+    "eval_name": "verify-12-pass-verdict",
+    "prompt": "Verify worker 2's task",
+    "setup": "All tests pass, build passes, all criteria VERIFIED, all E2E COVERED",
+    "assertions": [
+      "Verdict is PASS",
+      "No gaps listed"
+    ]
+  },
+  {
+    "eval_id": 12,
+    "eval_name": "verify-13-worker-claims-vs-reality",
+    "prompt": "Verify worker 3's task",
+    "setup": "state.json dod_checklist.npm_test:true but npm test actually fails",
+    "assertions": [
+      "Reports FAIL based on actual run, NOT worker's claim"
+    ]
+  },
+  {
+    "eval_id": 13,
+    "eval_name": "verify-14-multiple-e2e-scripts",
+    "prompt": "Verify worker 1's auth task",
+    "setup": "package.json has 'test:e2e', 'test:e2e:mobile', 'test:e2e:auth'",
+    "assertions": [
+      "Identifies available scripts",
+      "Runs the most relevant one to the task"
+    ]
+  },
+  {
+    "eval_id": 14,
+    "eval_name": "verify-15-missing-e2e-ui-task",
+    "prompt": "Verify worker 2's UI task",
+    "setup": "UI task, no E2E script in package.json",
+    "assertions": [
+      "Notes 'no E2E script found' as a gap in the report"
+    ]
+  },
+  {
+    "eval_id": 15,
+    "eval_name": "verify-16-gap-three-parts",
+    "prompt": "Verify worker 3's task",
+    "setup": "One missing test",
+    "assertions": [
+      "Gap includes which criterion",
+      "Gap includes file:line or where test should exist",
+      "Gap includes expected behavior"
+    ]
+  },
+  {
+    "eval_id": 16,
+    "eval_name": "verify-17-reads-specmd",
+    "prompt": "Verify worker 1's task",
+    "setup": "SPEC.md has specific done criteria",
+    "assertions": [
+      "Reads SPEC.md",
+      "References its criteria in the report"
+    ]
+  },
+  {
+    "eval_id": 17,
+    "eval_name": "verify-18-reads-claudemd",
+    "prompt": "Verify worker 2's task",
+    "setup": "CLAUDE.md has specific constraints",
+    "assertions": [
+      "Reads CLAUDE.md",
+      "Applies constraints to verification"
+    ]
+  }
+]

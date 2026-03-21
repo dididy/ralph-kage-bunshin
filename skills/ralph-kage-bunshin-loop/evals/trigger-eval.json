@@ -1,0 +1,46 @@
+[
+  {
+    "query": "Start the worker loop",
+    "should_trigger": true
+  },
+  {
+    "query": "Run as a ralph worker",
+    "should_trigger": true
+  },
+  {
+    "query": "Claim a task and start working on it",
+    "should_trigger": true
+  },
+  {
+    "query": "I'm worker 3, start the implementation loop",
+    "should_trigger": true
+  },
+  {
+    "query": "Begin the ralph-kage-bunshin worker cycle",
+    "should_trigger": true
+  },
+  {
+    "query": "Set up a new ralph project",
+    "should_trigger": false
+  },
+  {
+    "query": "Review worker 2's code",
+    "should_trigger": false
+  },
+  {
+    "query": "Debug worker 1's failure",
+    "should_trigger": false
+  },
+  {
+    "query": "Check worker status",
+    "should_trigger": false
+  },
+  {
+    "query": "Verify worker 3's output",
+    "should_trigger": false
+  },
+  {
+    "query": "Create a new task plan",
+    "should_trigger": false
+  }
+]

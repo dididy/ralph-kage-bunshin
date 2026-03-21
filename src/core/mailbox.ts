@@ -4,7 +4,7 @@ import path from 'path'
 export interface MailboxMessage {
   from: number
   to: number | 'all'
-  type: 'task_complete' | 'blocked' | 'decision' | 'info'
+  type: 'task_complete' | 'blocked' | 'decision' | 'info' | 'broadcast'
   subject: string
   body: string
   timestamp: string
@@ -14,7 +14,7 @@ function mailboxDir(projectDir: string): string {
   return path.join(projectDir, '.ralph', 'mailbox')
 }
 
-const VALID_MESSAGE_TYPES = new Set(['task_complete', 'blocked', 'decision', 'info'])
+const VALID_MESSAGE_TYPES = new Set(['task_complete', 'blocked', 'decision', 'info', 'broadcast'])
 
 function isValidMailboxMessage(m: unknown): m is MailboxMessage {
   if (typeof m !== 'object' || m === null) return false

@@ -1,0 +1,180 @@
+[
+  {
+    "eval_id": 0,
+    "eval_name": "debug-01-reads-full-context",
+    "prompt": "Worker 2 has 4 consecutive failures on task 'auth-login'. Error: TypeError: Cannot read property 'email' of undefined at src/auth.ts:42",
+    "setup": "Worker with 3 failures, error output provided",
+    "assertions": [
+      "Reads PROGRESS.md for previous attempts",
+      "Reads state.json for failure history",
+      "Reads the failing source file (src/auth.ts around line 42)",
+      "Reads the test file"
+    ]
+  },
+  {
+    "eval_id": 1,
+    "eval_name": "debug-02-one-hypothesis",
+    "prompt": "Diagnose worker 1's failure",
+    "setup": "Multiple possible root causes",
+    "assertions": [
+      "States ONE root cause hypothesis",
+      "Does NOT list multiple possible fixes",
+      "Does NOT say 'it could be A or B'"
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "debug-03-evidence-with-file-line",
+    "prompt": "Diagnose the failure",
+    "setup": "Error in specific source file",
+    "assertions": [
+      "Evidence field contains file:line reference",
+      "References actual code, not hypothetical",
+      "Traces one level deeper than the symptom"
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "debug-04-no-null-check-without-cause",
+    "prompt": "Worker got null pointer error at line 42",
+    "setup": "TypeError: Cannot read property X of null",
+    "assertions": [
+      "Does NOT suggest 'add a null check'",
+      "Traces WHY the value is null",
+      "Proposes fix that addresses the root cause"
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "debug-05-writes-debug-session",
+    "prompt": "Diagnose worker 3",
+    "setup": "Diagnosis complete",
+    "assertions": [
+      "Writes debug_session object to state.json",
+      "Contains triggered_at (ISO), root_cause, evidence, proposed_fix, confidence",
+      "confidence is exactly 'high', 'medium', or 'low'"
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "debug-06-read-only",
+    "prompt": "Debug worker 1's test failure",
+    "setup": "Clear root cause identified",
+    "assertions": [
+      "Does NOT edit any .ts/.tsx/.js files",
+      "Only writes to state.json",
+      "Tells the worker what to change, does not change it"
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "debug-07-low-confidence-explicit",
+    "prompt": "Worker 2 fails with vague 'unexpected token' error",
+    "setup": "Ambiguous error with multiple possible causes",
+    "assertions": [
+      "Sets confidence to 'low' if uncertain",
+      "Does NOT pretend certainty",
+      "Suggests how the worker can narrow down the cause"
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "debug-08-smallest-fix",
+    "prompt": "Diagnose the failure",
+    "setup": "Bug in one function",
+    "assertions": [
+      "Fix targets < 5% of affected files",
+      "Does NOT recommend refactoring unrelated code",
+      "Fix is a concrete, actionable change description"
+    ]
+  },
+  {
+    "eval_id": 8,
+    "eval_name": "debug-09-next-diagnostic-step-field",
+    "prompt": "Diagnose worker 1's failure",
+    "setup": "Ambiguous error with no clear root cause",
+    "assertions": [
+      "debug_session in state.json contains next_diagnostic_step field",
+      "next_diagnostic_step has a concrete action, not vague guidance",
+      "The step is written to state.json, not just stated in output text"
+    ]
+  },
+  {
+    "eval_id": 9,
+    "eval_name": "debug-10-agent-browser-ui-bugs",
+    "prompt": "Diagnose worker 2's white flash UI bug",
+    "setup": "White flash bug, no test error output",
+    "assertions": [
+      "Checks which agent-browser",
+      "Uses agent-browser eval to capture computed styles before/during/after trigger"
+    ]
+  },
+  {
+    "eval_id": 10,
+    "eval_name": "debug-11-agent-browser-install-prompt",
+    "prompt": "Diagnose worker 1's UI rendering bug",
+    "setup": "which agent-browser returns nothing",
+    "assertions": [
+      "Prompts user to install @anthropic-ai/agent-browser",
+      "Does NOT proceed without agent-browser"
+    ]
+  },
+  {
+    "eval_id": 11,
+    "eval_name": "debug-12-rerender-side-effect-check",
+    "prompt": "Diagnose worker 3's infinite re-render bug",
+    "setup": "UI bug caused by callback prop in useEffect deps",
+    "assertions": [
+      "Greps for useEffect/useCallback patterns",
+      "Identifies the re-render trigger from callback prop in deps"
+    ]
+  },
+  {
+    "eval_id": 12,
+    "eval_name": "debug-13-root-cause-before-fix",
+    "prompt": "Diagnose worker 2's failure",
+    "setup": "Clear error with obvious fix",
+    "assertions": [
+      "Output has root cause sentence before proposed fix",
+      "Does NOT skip directly to the fix"
+    ]
+  },
+  {
+    "eval_id": 13,
+    "eval_name": "debug-14-no-unrelated-refactoring",
+    "prompt": "Diagnose the failure in worker 1's code",
+    "setup": "Bug in one function, messy code in adjacent functions",
+    "assertions": [
+      "Fix targets only the bug",
+      "Does NOT suggest cleaning up adjacent code"
+    ]
+  },
+  {
+    "eval_id": 14,
+    "eval_name": "debug-15-reset-failures-instruction",
+    "prompt": "Diagnose worker 3's failure",
+    "setup": "Diagnosis complete with clear root cause",
+    "assertions": [
+      "Output includes instruction to reset consecutive_failures to 0"
+    ]
+  },
+  {
+    "eval_id": 15,
+    "eval_name": "debug-16-three-attempts-different-approach",
+    "prompt": "Diagnose worker 2's repeated failure",
+    "setup": "Diagnosis complete",
+    "assertions": [
+      "Output includes instruction about trying different approach if fix fails after 3 attempts"
+    ]
+  },
+  {
+    "eval_id": 16,
+    "eval_name": "debug-17-two-file-threshold",
+    "prompt": "Diagnose worker 1's failure",
+    "setup": "Root cause seems to need changes in 4 files",
+    "assertions": [
+      "Reconsiders diagnosis and looks for deeper root cause",
+      "OR explicitly justifies why multi-file change is needed"
+    ]
+  }
+]

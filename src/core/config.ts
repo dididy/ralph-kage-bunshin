@@ -23,8 +23,8 @@ function isValidConfig(c: unknown): c is RalphConfig {
   if (typeof n.macos !== 'boolean') return false
   if (typeof n.slack_webhook !== 'string') return false
   if (typeof n.discord_webhook !== 'string') return false
-  if ('leaseDurationMs' in obj && typeof obj.leaseDurationMs !== 'number') return false
-  if ('stuckThresholdMs' in obj && typeof obj.stuckThresholdMs !== 'number') return false
+  if ('leaseDurationMs' in obj && (typeof obj.leaseDurationMs !== 'number' || obj.leaseDurationMs <= 0)) return false
+  if ('stuckThresholdMs' in obj && (typeof obj.stuckThresholdMs !== 'number' || obj.stuckThresholdMs <= 0)) return false
   return true
 }
 

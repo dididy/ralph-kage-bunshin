@@ -1,0 +1,50 @@
+[
+  {
+    "query": "Review worker 2's implementation",
+    "should_trigger": true
+  },
+  {
+    "query": "Check if worker 1's task meets the spec",
+    "should_trigger": true
+  },
+  {
+    "query": "Do an architect review on worker 3",
+    "should_trigger": true
+  },
+  {
+    "query": "Spot-check worker 4's convergence",
+    "should_trigger": true
+  },
+  {
+    "query": "Override the inline review for worker 2",
+    "should_trigger": true
+  },
+  {
+    "query": "Review the pathology-flagged task from worker 1",
+    "should_trigger": true
+  },
+  {
+    "query": "Set up a new ralph project",
+    "should_trigger": false
+  },
+  {
+    "query": "Start the worker loop",
+    "should_trigger": false
+  },
+  {
+    "query": "Debug worker 3's failures",
+    "should_trigger": false
+  },
+  {
+    "query": "Verify worker 2's tests independently",
+    "should_trigger": false
+  },
+  {
+    "query": "What tests are missing?",
+    "should_trigger": false
+  },
+  {
+    "query": "Run npm test",
+    "should_trigger": false
+  }
+]

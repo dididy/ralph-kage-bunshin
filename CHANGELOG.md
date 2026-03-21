@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-03-21
+
+### Fixed
+- **Worker proliferation** — `ralph recover` previously spawned one worker per pending task, ignoring dependency status and active workers. With 12 tasks and cascading recovery cycles, this caused 5 initial workers to balloon to 25+, exhausting system memory (kernel panic). Recovery now spawns `max(0, claimable - active)` workers only.
+
+### Added
+- **Eval framework** — skill-creator compatible behavioral evals and trigger evals for all 6 skills (166 behavioral + 69 trigger = 235 test cases total)
+  - `ralph-kage-bunshin-start`: 37 behavioral + 13 trigger evals
+  - `ralph-kage-bunshin-loop`: 50 behavioral + 11 trigger evals
+  - `ralph-kage-bunshin-architect`: 20 behavioral + 12 trigger evals
+  - `ralph-kage-bunshin-debug`: 17 behavioral + 11 trigger evals
+  - `ralph-kage-bunshin-verify`: 18 behavioral + 11 trigger evals
+  - `api-integration-checklist`: 24 behavioral + 11 trigger evals
+- `ralph report` — per-worker summary showing task name, generations, elapsed time, convergence status, architect review, and token-based cost (input/output tokens, USD). Aggregates total cost across all workers.
+- `WorkerState.cost` — optional field for tracking per-worker token usage and estimated cost (`total_usd`, `total_input_tokens`, `total_output_tokens`, `api_duration_ms`)
+- `.claude-plugin/plugin.json` + `marketplace.json` — enables `npx skills add dididy/ralph-kage-bunshin` for skills.sh marketplace installation
+- Skills directory restructured from `skills/<name>.md` to `skills/<name>/SKILL.md` — standard format for `npx skills` compatibility
+
+### Removed
+- `ralph install-skills` command — replaced by `npx skills add dididy/ralph-kage-bunshin -gy`; companion skills installed separately via `npx skills add dididy/e2e-skills -gy` and `npx skills add dididy/ui-skills -gy`
+
+### Changed
+- **Skill descriptions optimized** — all 6 skill descriptions rewritten for precise triggering (reduces false positives between similar skills like architect vs verify)
+- `ralph team N` — workers launched with named sessions (`claude -n "ralph-worker-N"`) enabling future `--resume` for context preservation across recovery cycles
+- `ralph recover` — workers launched with named sessions (`claude -n "ralph-worker-N"`) consistent with `team`
+- `recover.test.ts` — rewritten to test claimable-based spawning: verifies blocked tasks don't trigger workers, active workers are subtracted from needed count, and dependency-gated tasks are correctly excluded
+- `team.test.ts` — updated to verify session naming flag (`-n "ralph-worker-N"`) in claude launch command
+- `/ralph-kage-bunshin-start` — UI clone projects now require `agent-browser` site analysis before interview; pre-fills Goal dimension from observed site structure; added: ONE-AT-A-TIME enforcement in all 3 dimensions, Goal-before-Constraints gate, self-contained task description requirement, isolated flag rule of thumb, anti-pattern for lumped E2E tasks
+- `/ralph-kage-bunshin-loop` — `agent-browser` availability check added before visual verification step; added: `sleep 1` race-condition note, HARD RULE for no-repeat learnings, two-renewal-per-generation minimum, loop invariant for exits, broadcast timing urgency, mandatory 5-field PROGRESS.md
+- `/ralph-kage-bunshin-debug` — `agent-browser` installation check added before browser-based debugging; added: read-ALL-before-hypothesis rule, upstream null cause guidance, `next_diagnostic_step` for low confidence, 2-file threshold
+- `/ralph-kage-bunshin-architect` — animation/transition tasks now require multi-point measurement evidence; hardcoded values without measurement → REJECT; added: BLOCKING pre-check emphasis, open-every-touched-file rule, steelman question checklist, no code snippets in rejections
+- `/ralph-kage-bunshin-verify` — added: E2E detection keywords, INCOMPLETE-is-not-soft-PASS, structured gap format with example
+- `/api-integration-checklist` — description clarified for design-time use before coding
+- README simplified — merged hero taglines, trimmed Key Features descriptions, consolidated How It Works steps, simplified Skills table, removed duplicate install commands
+
 ## [0.1.6] - 2026-03-20
 
 ### Changed

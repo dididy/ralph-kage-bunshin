@@ -1,0 +1,46 @@
+[
+  {
+    "query": "Worker 3 has failed 4 times in a row, diagnose it",
+    "should_trigger": true
+  },
+  {
+    "query": "Debug why my ralph worker keeps failing",
+    "should_trigger": true
+  },
+  {
+    "query": "Worker 1 hit stagnation, run the debugger",
+    "should_trigger": true
+  },
+  {
+    "query": "Diagnose the root cause of worker 2's consecutive failures",
+    "should_trigger": true
+  },
+  {
+    "query": "My worker has 3+ failures, help debug",
+    "should_trigger": true
+  },
+  {
+    "query": "Review worker 2's implementation",
+    "should_trigger": false
+  },
+  {
+    "query": "Set up a new project",
+    "should_trigger": false
+  },
+  {
+    "query": "Start the worker loop",
+    "should_trigger": false
+  },
+  {
+    "query": "Verify worker output",
+    "should_trigger": false
+  },
+  {
+    "query": "Check worker status",
+    "should_trigger": false
+  },
+  {
+    "query": "Fix this bug in my React component",
+    "should_trigger": false
+  }
+]

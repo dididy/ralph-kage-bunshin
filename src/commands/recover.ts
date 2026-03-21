@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
-import { readTasks, resetExpiredLeases, resetStuckTasks, readWorkerState, initWorkerState } from '../core/state'
-import { sessionExists, createSession, splitPane, applyLayout, killPane, listPanes, sendKeys, getActivePaneIndex, findIdlePanes, findStatusPane, getPaneCommands } from '../core/tmux'
+import { readTasks, resetExpiredLeases, resetStuckTasks, readWorkerState, initWorkerState, getClaimableTasks } from '../core/state'
+import { sessionExists, createSession, splitPane, applyLayout, killPane, listPanes, sendKeys, getActivePaneIndex, findIdlePanes, findStatusPane, getPaneCommands, getPaneTitles, setPaneTitle } from '../core/tmux'
 import { launchWorkers } from './team'
 import { loadConfig } from '../core/config'
 import { startCaffeinate } from '../core/caffeinate'
@@ -37,12 +37,16 @@ function findRecyclablePanes(
   const tasks = readTasks(projectDir)
   const activeWorkerIds = new Set(
     tasks
-      .filter(t => t.status === 'in-progress' && t.worker !== null)
-      .map(t => t.worker as number)
+      .flatMap(t => t.status === 'in-progress' && t.worker !== null ? [t.worker] : [])
   )
 
-  const panes = listPanes(session)
-  const workerPanes = panes.filter(p => p !== statusPane)
+  // Build reverse map: worker ID → pane index (from pane titles)
+  const titles = getPaneTitles(session)
+  const workerIdToPane = new Map<number, number>()
+  for (const [paneIdx, title] of titles) {
+    const match = title.match(/^ralph-worker-(\d+)$/)
+    if (match) workerIdToPane.set(parseInt(match[1], 10), paneIdx)
+  }
 
   const recyclable = new Set(idlePanes)
   for (const task of tasks) {
@@ -51,9 +55,9 @@ function findRecyclablePanes(
     if (activeWorkerIds.has(task.worker)) continue
     const state = readWorkerState(projectDir, task.worker)
     if (!state?.converged) continue
-    // Try to find this worker's pane by initial mapping (worker N → pane N-1)
-    const candidatePane = task.worker - 1
-    if (workerPanes.includes(candidatePane) && !recyclable.has(candidatePane)) {
+    // Find this worker's pane by title (reliable across recover cycles)
+    const candidatePane = workerIdToPane.get(task.worker)
+    if (candidatePane !== undefined && candidatePane !== statusPane && !recyclable.has(candidatePane)) {
       recyclable.add(candidatePane)
     }
   }
@@ -97,38 +101,52 @@ export function runRecover(projectDir: string, existingSession?: string): void {
     startCaffeinate()
   }
 
+  // Only spawn workers for claimable tasks (dependencies met), minus active workers
+  const claimableTasks = getClaimableTasks(projectDir)
+  const activeWorkerCount = tasks.filter(t => t.status === 'in-progress' && t.worker !== null).length
+  const neededWorkers = Math.max(0, claimableTasks.length - activeWorkerCount)
+
+  if (neededWorkers === 0) {
+    const blockedCount = pendingTasks.length - claimableTasks.length
+    console.log(`[RECOVER] No workers needed — ${activeWorkerCount} active, ${claimableTasks.length} claimable, ${blockedCount} blocked by dependencies.`)
+    return
+  }
+
+  console.log(`[RECOVER] ${claimableTasks.length} claimable, ${activeWorkerCount} active → spawning ${neededWorkers} worker(s)`)
+
   const existingWorkerIds = tasks
     .map(t => t.worker)
     .filter((w): w is number => typeof w === 'number')
   const maxExistingId = existingWorkerIds.length > 0 ? Math.max(...existingWorkerIds) : 0
-  const newWorkerIds = Array.from({ length: pendingTasks.length }, (_, i) => maxExistingId + i + 1)
+  const newWorkerIds = Array.from({ length: neededWorkers }, (_, i) => maxExistingId + i + 1)
 
   const envPath = path.join(projectDir, '.ralph', '.env')
 
   // Try to reuse panes in the existing session
   if (existingSession && sessionExists(existingSession)) {
-    // Clean up excess idle panes first (keep at most pendingTasks.length)
-    cleanupIdlePanes(existingSession, pendingTasks.length)
+    // Clean up excess idle panes first (keep at most neededWorkers)
+    cleanupIdlePanes(existingSession, neededWorkers)
 
     // Re-scan after cleanup
-    const recyclablePanes = findRecyclablePanes(existingSession, projectDir, pendingTasks.length)
+    const recyclablePanes = findRecyclablePanes(existingSession, projectDir, neededWorkers)
 
     const launchOnPane = (paneIdx: number, workerId: number) => {
       initWorkerState(projectDir, workerId)
+      setPaneTitle(existingSession, paneIdx, `ralph-worker-${workerId}`)
       sendKeys(existingSession, paneIdx, `cd ${shellQuote(projectDir)}`)
       if (fs.existsSync(envPath)) {
         sendKeys(existingSession, paneIdx, `source ${shellQuote(envPath)}`)
       }
       sendKeys(existingSession, paneIdx, `export RALPH_WORKER_ID='${workerId}'`)
       sendKeys(existingSession, paneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
-      sendKeys(existingSession, paneIdx, `claude -p --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
+      sendKeys(existingSession, paneIdx, `claude -n "ralph-worker-${workerId}" --dangerously-skip-permissions "/ralph-kage-bunshin-loop"`)
     }
 
     let launched = 0
     const cmds = getPaneCommands(existingSession)
 
     // Recycle existing panes
-    for (let i = 0; i < recyclablePanes.length && launched < pendingTasks.length; i++) {
+    for (let i = 0; i < recyclablePanes.length && launched < neededWorkers; i++) {
       const paneIdx = recyclablePanes[i]
       const workerId = newWorkerIds[launched]
       const cmd = cmds.get(paneIdx) ?? ''
@@ -153,8 +171,8 @@ export function runRecover(projectDir: string, existingSession?: string): void {
       launched++
     }
 
-    // Spawn new panes for remaining tasks
-    for (let i = launched; i < pendingTasks.length; i++) {
+    // Spawn new panes for remaining workers
+    for (let i = launched; i < neededWorkers; i++) {
       const workerId = newWorkerIds[i]
       splitPane(existingSession)
       applyLayout(existingSession, 'tiled')
@@ -183,14 +201,14 @@ export function runRecover(projectDir: string, existingSession?: string): void {
   }
 
   createSession(recoverSession)
-  for (let i = 1; i < pendingTasks.length; i++) {
+  for (let i = 1; i < neededWorkers; i++) {
     splitPane(recoverSession)
     applyLayout(recoverSession, 'tiled')
   }
 
   launchWorkers(recoverSession, newWorkerIds, projectDir)
 
-  console.log(`\n[OK] Recovery started: ${recoverSession} (${pendingTasks.length} worker${pendingTasks.length === 1 ? '' : 's'})`)
+  console.log(`\n[OK] Recovery started: ${recoverSession} (${neededWorkers} worker${neededWorkers === 1 ? '' : 's'})`)
   console.log(`\nTo watch workers:`)
   console.log(`  tmux attach -t '${recoverSession}'`)
   console.log(`\nTo monitor status:`)

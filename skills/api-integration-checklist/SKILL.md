@@ -1,6 +1,6 @@
 ---
 name: api-integration-checklist
-description: Use when a project will call external APIs from the browser — checks CORS support, auth requirements, rate limits, and decides whether a proxy layer is needed before writing SPEC.md
+description: Use before implementing any external API integration — verifies endpoints against live API, checks CORS support, auth/security requirements, rate limits, pagination, timeout, caching, and decides whether a proxy layer is needed. Run at design time to catch integration blockers before coding.
 ---
 
 # /api-integration-checklist
@@ -43,18 +43,22 @@ curl -si "https://api.example.com/search?i=abc123" | head -5
 ## Step 1: CORS check
 
 ```bash
-# Standard request
-curl -si "<API_BASE_URL>/any-endpoint" | grep -i "access-control"
+# Standard GET request — simple requests skip preflight, so check CORS headers here too
+curl -si "<API_BASE_URL>/any-endpoint" \
+  -H "Origin: http://localhost:3000" | grep -i "access-control"
 
-# Also check preflight (some servers only respond to OPTIONS)
+# Also check preflight (required for custom headers, non-simple methods)
 curl -si -X OPTIONS "<API_BASE_URL>/any-endpoint" \
   -H "Origin: http://localhost:3000" \
   -H "Access-Control-Request-Method: GET" | grep -i "access-control"
 ```
 
+> **Check both.** Simple requests (GET, no custom headers) skip preflight — some APIs return CORS headers on GET but not OPTIONS, or vice versa. You need both to pass for non-trivial usage (custom headers, auth tokens).
+
 | Result | Meaning |
 |--------|---------|
-| `access-control-allow-origin: *` or your domain | Browser fetch OK — no proxy needed |
+| `access-control-allow-origin: *` or your domain on both | Browser fetch OK — no proxy needed |
+| Header on GET but not OPTIONS | Simple requests work, but custom headers / auth will fail — **proxy likely needed** |
 | No header on either request | CORS blocked — **proxy required** |
 
 ## Step 2: Response & error format
@@ -74,6 +78,10 @@ curl -si "<API_BASE_URL>/any-endpoint?bad_param=xyz" | head -20
 | `application/json` | Standard `JSON.parse()` |
 | `application/x-ndjson` or `application/octet-stream` | Line-by-line — `text.split('\n').filter(Boolean).map(JSON.parse)` |
 | Streaming / chunked | ReadableStream or accumulate with `response.text()` |
+| `text/event-stream` (SSE) | `EventSource` API or `fetch` + ReadableStream line parser |
+| WebSocket (`wss://`) | Separate connection — see CORS note below |
+
+> **WebSocket / SSE:** These protocols have different CORS behavior. WebSocket connections are not subject to CORS (no preflight), but the server can check `Origin` header to reject. SSE follows standard CORS rules. If the API uses either, document the protocol in SPEC.md and design the client layer accordingly.
 
 **Error response — document the actual shape:**
 
@@ -98,6 +106,10 @@ curl -si "<API_BASE_URL>/any-endpoint?bad_param=xyz" | head -20
 - **PII in responses** — does the API return personal data (emails, names, tokens)?
   - Never log or cache raw responses client-side if they contain PII
 - **Origin/Referrer restrictions** — some APIs only allow calls from whitelisted domains. Test from your actual domain, not just localhost.
+- **API key rotation** — if using secret keys in a proxy, plan for rotation:
+  - Keys should come from env vars, never hardcoded
+  - Document the rotation procedure (who rotates, how to deploy new key without downtime)
+  - Consider dual-key support during rotation window (old + new key both valid)
 
 ## Step 4: Proxy decision
 
@@ -114,7 +126,19 @@ If CORS is blocked **or** a secret key is required, pick a proxy layer and lock 
 
 See `vercel-react-best-practices` for Server Components / Route Handler patterns when using Next.js.
 
-## Step 5: Pagination & data volume
+## Step 5: Resilience
+
+Decide upfront what happens when the external API is down — this is independent of whether you use a proxy:
+
+| Pattern | When to use |
+|---------|-------------|
+| **Fallback UI** | Show cached/stale data or "service unavailable" message — never a blank screen |
+| **Circuit breaker** | After N consecutive failures, stop calling the API for a cooldown period — prevents cascading failures |
+| **Graceful degradation** | Feature that depends on the API is disabled, rest of the app works normally |
+
+> Document the degradation behavior in SPEC.md. "What does the user see when the API is down?" must have an answer before implementation starts.
+
+## Step 6: Pagination & data volume
 
 ```bash
 # Check if response includes pagination metadata
@@ -129,7 +153,7 @@ curl -s "<API_BASE_URL>/any-endpoint" | head -5
 
 If infinite scroll is a UI requirement, the data fetching layer must support pagination from day one — retrofitting is expensive.
 
-## Step 6: Rate limits & caching
+## Step 7: Rate limits & retry
 
 ```bash
 # Check for rate limit headers
@@ -138,13 +162,69 @@ curl -si "<API_BASE_URL>/any-endpoint" | grep -i "x-ratelimit\|retry-after"
 
 If no headers: assume unknown rate limit — record as such in SPEC.md and consider limiting concurrency.
 
+**Retry & backoff strategy** — decide upfront how the client handles `429` or `5xx`:
+
+| Strategy | When to use |
+|----------|-------------|
+| **Exponential backoff** | Default for all external APIs — `delay = min(baseDelay * 2^attempt, maxDelay)` with jitter |
+| **`Retry-After` header** | If the API provides it, always respect it over your own backoff |
+| **No retry** | Idempotency-unsafe mutations (POST that creates a resource) — retry causes duplicates |
+
+```ts
+// Minimal retry with exponential backoff + jitter
+async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, {
+      ...options,
+      signal: options?.signal ?? AbortSignal.timeout(10_000),
+    })
+    if (response.ok) return response
+
+    const isRetryable = response.status === 429 || response.status >= 500
+    if (attempt === maxRetries || !isRetryable) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const retryAfter = response.headers.get('Retry-After')
+    const delay = retryAfter
+      ? parseRetryAfter(retryAfter)
+      : Math.min(1000 * 2 ** attempt, 30_000) + Math.random() * 1000
+    await new Promise(r => setTimeout(r, delay))
+  }
+  throw new Error('Unreachable') // satisfies TypeScript — loop always returns or throws above
+}
+
+// Retry-After can be seconds ("120") or HTTP-date ("Wed, 21 Oct 2025 07:28:00 GMT")
+function parseRetryAfter(value: string): number {
+  const seconds = Number(value)
+  if (!Number.isNaN(seconds)) return seconds * 1000
+  const date = Date.parse(value)
+  if (!Number.isNaN(date)) return Math.max(date - Date.now(), 0)
+  return 5000 // fallback if unparseable
+}
+```
+
+## Step 8: Timeout
+
+Every external fetch must have a timeout. Unbounded requests block UI and exhaust connection pools.
+
+| Method | Browser support | How |
+|--------|----------------|-----|
+| **`AbortSignal.timeout(ms)`** | Chrome 103+, Firefox 100+, Safari 16+ | `fetch(url, { signal: AbortSignal.timeout(10_000) })` |
+| **`AbortController` + `setTimeout`** | All modern browsers | Manual setup — use when targeting Safari < 16 or SSR runtimes without `AbortSignal.timeout` |
+| **Proxy-level timeout** | N/A (server-side) | Set on the proxy server (e.g. `proxyTimeout: 15000` in Vite, `timeout` in Express) |
+
+> Default recommendation: **10s for reads, 30s for writes/uploads.** Adjust based on observed API latency from Step 0. Document chosen timeouts in SPEC.md.
+
+## Step 9: Caching
+
 | Caching option | When to use |
 |----------------|-------------|
 | **SWR / React Query** | Client-side deduplication, automatic revalidation |
 | **Proxy-level cache** | Proxy caches upstream responses — reduces rate limit pressure from parallel requests |
 | **None** | Real-time data where stale results are unacceptable |
 
-## Step 7: Type safety
+## Step 10: Type safety
 
 - Officially documented API with OpenAPI/Swagger → generate types from spec
 - Undocumented / unstable API → receive as `unknown`, validate at runtime:
@@ -157,7 +237,7 @@ const data = ItemSchema.parse(raw) // throws on unexpected shape — catches API
 
 Never use `any` for external API responses. If skipping zod, document the reason in SPEC.md.
 
-## Step 8: Mock strategy & environment variables
+## Step 11: Mock strategy & environment variables
 
 **Mock strategy** — mandatory if API has no CORS support or requires auth (tests must never hit the live API):
 
@@ -191,11 +271,16 @@ Rules:
 - HTTPS: yes / no
 - CORS: supported / not supported
 - Auth: <none | public key | secret key (server-side only) | session cookies>
+- Key rotation: <env var swap | dual-key window | N/A (no secret key)>
 - Proxy: <none | dev proxy only | Next.js Route Handler | Express | Edge Function>
-- Response format: <JSON | NDJSON stream | other>
+- Protocol: <REST | SSE | WebSocket>
+- Response format: <JSON | NDJSON stream | SSE | other>
 - Error format: <JSON object | inline NDJSON | HTTP status only | HTML>
 - Pagination: <none | cursor (field: X) | offset/limit (max: N) | fixed limit N — no more>
 - Rate limit: <N req/min | unknown — limit concurrency>
+- Retry: <exponential backoff | Retry-After | none (unsafe mutation)>
+- Timeout: <read Ns | write Ns>
+- Resilience: <fallback UI | circuit breaker | graceful degradation>
 - Caching: <SWR | proxy cache | none>
 - Type validation: <zod | none — reason: X>
 - Mock strategy: <MSW | vi.mock | fixture files | mock env flag>
@@ -218,3 +303,9 @@ Rules:
 | `any` typed API response | Use `unknown` + zod — API shape changes break silently with `any` |
 | Fixed `limit=N` API + infinite scroll requirement | Document the constraint before building UI — no retrofit path |
 | No `.env.example` committed | Future contributors (or workers) won't know what vars are needed |
+| No timeout on `fetch` calls | Add `AbortSignal.timeout(10_000)` — unbounded requests block UI and exhaust connections |
+| 429 response crashes the app | Implement exponential backoff with jitter — respect `Retry-After` header if present |
+| No plan for API downtime | Define fallback UI / graceful degradation before implementation — "blank screen" is not acceptable |
+| Retrying non-idempotent mutations | POST that creates resources must not retry — duplicates are worse than failures |
+| WebSocket assumed to need CORS proxy | WebSocket is not subject to CORS preflight — server checks `Origin` header directly |
+| API key hardcoded, no rotation plan | Keys in env vars, document rotation procedure, consider dual-key window |

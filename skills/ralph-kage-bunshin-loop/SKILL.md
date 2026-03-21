@@ -1,6 +1,6 @@
 ---
 name: ralph-kage-bunshin-loop
-description: Use when running as a ralph-kage-bunshin worker — claims tasks, follows TDD, calls Debugger on failures, inline verify before converging
+description: The main execution loop for a ralph-kage-bunshin worker — claims a task from tasks.json, implements via TDD, renews leases, detects pathology, calls Debugger on 3+ failures, runs inline DoD verification, and converges. Invoked automatically by the harness, not manually.
 ---
 
 # /ralph-kage-bunshin-loop — Ralph Loop Skill
@@ -32,7 +32,7 @@ You are a Ralph harness worker. When this skill runs, loop until CONVERGED or PA
 3. Pick the claimable task with the **lowest ID number**
 4. **Immediately** write to `.ralph/tasks.json`: set the task's `status` to `'in-progress'`, `claimed_at` to now (ISO), `lease_expires_at` to now + 30 minutes, and `worker` to your worker ID. Save tasks.json.
 5. **MANDATORY CLAIM VERIFICATION — do not skip this step:**
-   - Wait 1 second (let other workers write if they're racing)
+   - Wait 1 second (use `sleep 1` — do not skip this delay, it is the only race-condition protection)
    - Re-read `.ralph/tasks.json` from disk
    - Check: does the task's `worker` field equal YOUR worker ID? Compare as numbers (`Number(task.worker) === Number(YOUR_WORKER_ID)`)
    - **If YES**: claim is yours — proceed to step 6
@@ -62,6 +62,7 @@ Then read in this order:
 - `CLAUDE.md` — **how to work** (coding rules, TDD, commit gates). Read the `## Code Correctness Rules` section before writing any code.
 - `.ralph/SPEC.md` — **what to build** (architecture, tech stack, done criteria, E2E scenarios). **This overrides CLAUDE.md defaults for tech stack choices.**
 - `.ralph/workers/worker-N/PROGRESS.md` — **read every `learnings:` line from previous generations before doing anything**. These are hard-won discoveries. Repeating a failed approach already recorded in `learnings` is not allowed.
+  **HARD RULE**: If a `learnings:` line says approach X failed, you MUST NOT try approach X again. Choose a fundamentally different strategy. Repeating a recorded failure wastes an entire generation.
 - `.ralph/workers/worker-N/state.json` (current state — use to initialize your generation counter and `approach_history`)
 
 **state.json initial structure** (create if missing):
@@ -115,9 +116,10 @@ Repeat the following until CONVERGED or PATHOLOGY detected:
   }
   ```
   Save as `.ralph/mailbox/<timestamp>-worker-N-broadcast.json`. Other workers will pick it up at the start of their next generation.
+  **Timing**: write the broadcast IMMEDIATELY upon discovery — before your next test run, before updating state.json, before anything else. Other workers may be about to start work based on the wrong assumption.
 
 ### 2. Renew lease
-Read `.ralph/tasks.json`, update `lease_expires_at` for your task, write it back. Do this **before** running tests, and again after tests complete.
+Read `.ralph/tasks.json`, update `lease_expires_at` for your task, write it back. Do this **before** running tests (step 3), and again **after** tests and state update complete (after step 4). Two renewals per generation minimum.
 
 ```js
 lease_expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString()
@@ -137,6 +139,8 @@ npm test 2>&1 | tail -20
 ### 3b. Runtime verification (UI tasks only)
 
 For tasks involving browser UI, tsc + unit tests passing is **not sufficient**. After tests pass:
+
+> **agent-browser**: check `which agent-browser` first. If not installed, prompt the user to run `npm install -g @anthropic-ai/agent-browser` before proceeding.
 
 ```bash
 agent-browser open http://localhost:<port>
@@ -205,6 +209,7 @@ Write to `.ralph/workers/worker-N/PROGRESS.md`:
 - used_skills: [list of slash commands actually invoked this generation, e.g. "/transition-reverse-engineering, /api-integration-checklist", or "none"]
 - learnings: [one sentence — what you discovered that the next worker should know, or "none"]
 ```
+All five fields are MANDATORY — omitting any field (especially `learnings:`) makes the entry useless for future generations.
 
 ### 7. DoD check
 
@@ -313,6 +318,8 @@ generation: N
 **Do NOT exit yet. Go back to "On Start" and claim the next pending task.**
 - If there are more claimable `pending` tasks → claim one and start the loop again
 - If no claimable pending tasks remain → all work is done or in-progress by others → Exit
+
+**Loop invariant**: a worker exits ONLY when (a) all tasks are converged, or (b) all remaining tasks are in-progress by other workers and `ralph recover` has been run. A worker that converges one task and exits while claimable tasks remain is a bug.
 
 ## Absolute Rules
 

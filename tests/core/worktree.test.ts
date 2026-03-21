@@ -36,6 +36,24 @@ describe('worktree', () => {
       expect(addCall![3]).toMatch(/^feat\/worker-2-auth-module/)
     })
 
+    it('falls back to rmSync when git worktree remove fails on stale worktree', () => {
+      vi.mocked(execFileSync).mockImplementation((_cmd, args) => {
+        const argArr = args as string[]
+        if (argArr[0] === 'worktree' && argArr[1] === 'remove') {
+          throw new Error('worktree locked')
+        }
+        return Buffer.from('')
+      })
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.rmSync).mockReturnValue(undefined)
+
+      createWorktree('/proj', 1, 'setup')
+      expect(fs.rmSync).toHaveBeenCalledWith(
+        expect.stringContaining('worktree'),
+        expect.objectContaining({ recursive: true, force: true })
+      )
+    })
+
     it('removes stale worktree before creating a new one', () => {
       const calls: string[][] = []
       vi.mocked(execFileSync).mockImplementation((_cmd, args) => {
@@ -80,6 +98,23 @@ describe('worktree', () => {
       expect(removeCall).toBeDefined()
       expect(branchDelete).toBeDefined()
       expect(branchDelete![2]).toMatch(/^feat\/worker-1-auth-module/)
+    })
+
+    it('warns when worktree remove fails', () => {
+      let callCount = 0
+      vi.mocked(execFileSync).mockImplementation((_cmd, args) => {
+        const argArr = args as string[]
+        if (argArr[0] === 'worktree' && argArr[1] === 'remove') {
+          throw new Error('worktree busy')
+        }
+        return Buffer.from('')
+      })
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+
+      const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      removeWorktree('/proj', 1, 'Auth module')
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('Could not remove worktree'))
+      spy.mockRestore()
     })
 
     it('does not throw when worktree path does not exist', () => {

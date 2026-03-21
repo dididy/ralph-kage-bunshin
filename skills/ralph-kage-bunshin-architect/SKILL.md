@@ -1,6 +1,6 @@
 ---
 name: ralph-kage-bunshin-architect
-description: Use when reviewing a ralph worker's implementation — checks spec compliance, steelmans before approving, writes converged state atomically
+description: Use to manually review and approve/reject a ralph worker's completed task — checks spec compliance, code correctness, E2E coverage, steelmans before approving, and writes converged state atomically. This is the approval authority; use /ralph-kage-bunshin-verify for read-only checks without state changes.
 ---
 
 # /ralph-kage-bunshin-architect — Architect Review Skill
@@ -30,6 +30,8 @@ Provide:
 
 **Before reviewing anything else:**
 
+**These pre-checks are BLOCKING — if either triggers, STOP. Do not read source code, do not review tests. The rejection is immediate.**
+
 1. Check `state.json` for pathology flags. If any of `pathology.stagnation`, `pathology.oscillation`, or `pathology.wonder_loop` is `true` — immediately REJECT with note: "Pathology detected ([type]). Worker must resolve the root cause and resubmit."
 
 2. **If state.json already contains `architect_review` or `converged: true`** — these were written by the worker's own inline review. Ignore them. Review the actual code independently. If the worker approved but you find gaps → REJECT. If the worker rejected but you find all criteria met → APPROVE. Your judgment is final.
@@ -46,7 +48,7 @@ Check each of the following:
 ### Correctness
 - Do tests actually test the spec requirements (not just implementation details)?
 - Are edge cases handled as specified?
-- **Read the source code, not just the tests.** For each component or function the task touches, apply the `CLAUDE.md § Code Correctness Rules`:
+- **Read the source code, not just the tests.** Open EVERY file the task touched (check git diff or PROGRESS.md for the list). Skimming test output alone misses runtime bugs, incorrect error paths, and contract violations that tests don't cover. For each component or function the task touches, apply the `CLAUDE.md § Code Correctness Rules`:
   - Are values passed to dependencies stable/fresh as their contract requires? A value created inside a hot path and passed as if it were stable is a bug.
   - Are async operations that write to shared state cancellable? If the owner is torn down before completion, the write must be a no-op.
   - Does every boolean/state that gates UI visibility reach the correct value on the happy path AND on error/empty paths?
@@ -62,6 +64,11 @@ Check each of the following:
   - If the worker noted that `agent-browser` is unavailable → **acceptable** — skip this check
   - Otherwise → **REJECT**: "Runtime visual check missing — worker must run agent-browser screenshots and confirm no white flash, blank frame, or layout jump"
 - If verification was done but a failure was noted and not fixed → **REJECT** with the specific visual defect
+
+### Animation/transition tasks — additional checks
+- For scroll-driven or animated UI: check for `measurements.json` or equivalent multi-point measurement data showing that the worker extracted actual values from the original at multiple progress points (not just start/end)
+- If the worker used hardcoded/guessed values without measurement evidence → **REJECT**: "Animation values must be measured from the original at 10%+ progress intervals. Guessed values produce wrong timing curves."
+- Frame-by-frame comparison table (ref vs impl at 5+ progress points) must exist and all rows must show ✅
 
 ### Scope
 - Is there anything built that is NOT in the spec (over-engineering)?
@@ -81,7 +88,7 @@ Before writing APPROVED, steelman the rejection:
 - Is there any criterion in SPEC.md that could be argued as not met?
 - Are tests testing behavior (what it does) or implementation (how it does it)?
 
-If you find a legitimate gap during steelmanning → REJECT with that specific gap.
+If you find a legitimate gap during steelmanning → REJECT with that specific gap. Common steelman questions: (1) What happens on the error path — does the UI recover? (2) Are there race conditions in async operations? (3) Does the implementation handle empty/null/edge-case inputs? (4) Would this break if the API response shape changes?
 If steelmanning produces no legitimate gap → APPROVE.
 
 This is not about finding problems for the sake of it. "No issues found" is a valid and expected outcome.
@@ -129,7 +136,7 @@ Tell the worker: **ARCHITECT REJECTED** followed by a numbered list of specific 
 
 ## Rules
 
-- You do NOT write code
+- You do NOT write code. You do NOT suggest code snippets in rejection notes. Tell the worker WHAT is wrong and WHERE (file:line), not HOW to fix it. The worker owns the implementation decision.
 - You do NOT reassign tasks
 - You do NOT modify source files
 - Your judgment overrides the worker's inline review — if you REJECT, `converged` must be reset to `false`
