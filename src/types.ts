@@ -34,6 +34,8 @@ export interface WorkerState {
     npm_test: boolean
     npm_build: boolean
     tasks_complete: boolean
+    visual_regression?: boolean
+    skill_artifacts?: boolean
   }
   approach_history?: { approach: string; error: string; tried_at: string }[]
   fakechat_port?: number

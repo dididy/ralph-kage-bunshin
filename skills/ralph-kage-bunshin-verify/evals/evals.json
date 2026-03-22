@@ -92,26 +92,62 @@
   },
   {
     "eval_id": 8,
-    "eval_name": "verify-09-runtime-visual-check",
+    "eval_name": "verify-09-skill-artifact-check",
     "prompt": "Verify worker 2's UI task",
-    "setup": "UI task, PROGRESS.md has no screenshot evidence",
+    "setup": "Task description has '/ui-reverse-engineering', no ui-measurements.json exists in .ralph/workers/worker-2/",
     "assertions": [
-      "Marks runtime visual verification as MISSING in report"
+      "Checks for ui-measurements.json artifact file",
+      "Marks Skill Artifacts section as MISSING",
+      "Verdict is FAIL or INCOMPLETE (not PASS)"
     ]
   },
   {
     "eval_id": 9,
-    "eval_name": "verify-10-runtime-visual-failed",
-    "prompt": "Verify worker 3's UI task",
-    "setup": "PROGRESS.md notes 'white flash in during.png' with no fix recorded",
+    "eval_name": "verify-10-skill-artifact-empty",
+    "prompt": "Verify worker 3's animation task",
+    "setup": "Task has '/transition-reverse-engineering', transition-measurements.json exists but contains {}",
     "assertions": [
-      "Marks as FAILED",
-      "Includes visual defect in gaps"
+      "Reads artifact file content",
+      "Marks as EMPTY (not VERIFIED)",
+      "Includes in gaps"
     ]
   },
   {
     "eval_id": 10,
-    "eval_name": "verify-11-fail-verdict",
+    "eval_name": "verify-11-visual-regression-missing",
+    "prompt": "Verify worker 2's UI task",
+    "setup": "UI task, no visual-regression.json exists",
+    "assertions": [
+      "Checks for visual-regression.json",
+      "Marks Visual Regression as MISSING in report",
+      "Verdict is FAIL (not PASS)"
+    ]
+  },
+  {
+    "eval_id": 11,
+    "eval_name": "verify-12-visual-regression-failed",
+    "prompt": "Verify worker 3's UI task",
+    "setup": "visual-regression.json exists with overall_verdict:'fail', hero section mismatch",
+    "assertions": [
+      "Reads visual-regression.json",
+      "Marks Visual Regression as FAILED",
+      "Includes mismatch details in gaps"
+    ]
+  },
+  {
+    "eval_id": 12,
+    "eval_name": "verify-13-visual-regression-pass",
+    "prompt": "Verify worker 1's UI task",
+    "setup": "visual-regression.json exists with overall_verdict:'pass', screenshots present in both directories",
+    "assertions": [
+      "Marks Visual Regression as VERIFIED",
+      "Marks Screenshots present as YES",
+      "Does not flag as a gap"
+    ]
+  },
+  {
+    "eval_id": 13,
+    "eval_name": "verify-14-fail-verdict",
     "prompt": "Verify worker 1's task",
     "setup": "npm test exits with error",
     "assertions": [
@@ -120,18 +156,18 @@
     ]
   },
   {
-    "eval_id": 11,
-    "eval_name": "verify-12-pass-verdict",
+    "eval_id": 14,
+    "eval_name": "verify-15-pass-verdict",
     "prompt": "Verify worker 2's task",
-    "setup": "All tests pass, build passes, all criteria VERIFIED, all E2E COVERED",
+    "setup": "All tests pass, build passes, all criteria VERIFIED, all E2E COVERED, skill artifacts present, visual regression passed",
     "assertions": [
       "Verdict is PASS",
       "No gaps listed"
     ]
   },
   {
-    "eval_id": 12,
-    "eval_name": "verify-13-worker-claims-vs-reality",
+    "eval_id": 15,
+    "eval_name": "verify-16-worker-claims-vs-reality",
     "prompt": "Verify worker 3's task",
     "setup": "state.json dod_checklist.npm_test:true but npm test actually fails",
     "assertions": [
@@ -139,8 +175,8 @@
     ]
   },
   {
-    "eval_id": 13,
-    "eval_name": "verify-14-multiple-e2e-scripts",
+    "eval_id": 16,
+    "eval_name": "verify-17-multiple-e2e-scripts",
     "prompt": "Verify worker 1's auth task",
     "setup": "package.json has 'test:e2e', 'test:e2e:mobile', 'test:e2e:auth'",
     "assertions": [
@@ -149,8 +185,8 @@
     ]
   },
   {
-    "eval_id": 14,
-    "eval_name": "verify-15-missing-e2e-ui-task",
+    "eval_id": 17,
+    "eval_name": "verify-18-missing-e2e-ui-task",
     "prompt": "Verify worker 2's UI task",
     "setup": "UI task, no E2E script in package.json",
     "assertions": [
@@ -158,8 +194,8 @@
     ]
   },
   {
-    "eval_id": 15,
-    "eval_name": "verify-16-gap-three-parts",
+    "eval_id": 18,
+    "eval_name": "verify-19-gap-three-parts",
     "prompt": "Verify worker 3's task",
     "setup": "One missing test",
     "assertions": [
@@ -169,8 +205,8 @@
     ]
   },
   {
-    "eval_id": 16,
-    "eval_name": "verify-17-reads-specmd",
+    "eval_id": 19,
+    "eval_name": "verify-20-reads-specmd",
     "prompt": "Verify worker 1's task",
     "setup": "SPEC.md has specific done criteria",
     "assertions": [
@@ -179,8 +215,8 @@
     ]
   },
   {
-    "eval_id": 17,
-    "eval_name": "verify-18-reads-claudemd",
+    "eval_id": 20,
+    "eval_name": "verify-21-reads-claudemd",
     "prompt": "Verify worker 2's task",
     "setup": "CLAUDE.md has specific constraints",
     "assertions": [

@@ -200,6 +200,8 @@ Read the current state.json first, then write back with:
 - `dod_checklist.npm_test`: set to true when npm test passes
 - `dod_checklist.npm_build`: set to true when npm run build passes
 - `dod_checklist.tasks_complete`: set to true when your assigned task is done
+- `dod_checklist.visual_regression`: set to true when visual-regression.json exists with `overall_verdict: "pass"` (or skipped with documented reason). Only for UI tasks with a reference URL.
+- `dod_checklist.skill_artifacts`: set to true when all required skill artifact files exist (ui-measurements.json, transition-measurements.json as applicable)
 - `updated_at`: current ISO timestamp
 
 ### 5. Detect pathology patterns
@@ -257,10 +259,37 @@ For UI tasks:
 - Run `/e2e-reviewer` on your Playwright test files and fix any issues flagged (skip only if not installed — note it in PROGRESS.md)
 - E2E tests must cover all scenarios assigned to this task in `.ralph/SPEC.md`
 
-**Skill invocation check:**
+**Skill invocation check (hard gate — convergence blocked without artifacts):**
 - Re-read your task `description` in `.ralph/tasks.json`
-- If `/ui-reverse-engineering` appears in the description and `used_skills:` in your PROGRESS.md does NOT include it → you MUST go back and run it now. Do not converge without it.
-- If `/transition-reverse-engineering` appears in the description and `used_skills:` does NOT include it → same rule.
+- If `/ui-reverse-engineering` appears in the description:
+  1. `used_skills:` in your PROGRESS.md MUST include it
+  2. An artifact file MUST exist at `.ralph/workers/worker-N/ui-measurements.json` containing extracted design data (colors, spacing, layout dimensions from the reference site)
+  3. If either is missing → you MUST go back and run the skill now. Do not converge without both the skill invocation AND the artifact file.
+- If `/transition-reverse-engineering` appears in the description:
+  1. `used_skills:` in your PROGRESS.md MUST include it
+  2. An artifact file MUST exist at `.ralph/workers/worker-N/transition-measurements.json` containing extracted animation values (easing, duration, transforms from the reference site)
+  3. Same rule — both invocation AND artifact required.
+
+**Visual regression check (hard gate for UI tasks — convergence blocked without comparison):**
+- Check if `.ralph/SPEC.md` contains a `## Reference` section with a URL
+- If a reference URL exists AND your task involves UI (components, pages, sections, layout):
+  1. Start a dev server (`npx next dev -p 309N` where N = your worker ID) or use an existing one
+  2. Use `agent-browser` to screenshot the **reference site** at the relevant sections → save to `.ralph/workers/worker-N/reference-screenshots/`
+  3. Use `agent-browser` to screenshot **your clone** at the same sections → save to `.ralph/workers/worker-N/clone-screenshots/`
+  4. Compare each pair visually. For each section, write a brief comparison note in `.ralph/workers/worker-N/visual-regression.json`:
+     ```json
+     {
+       "reference_url": "https://...",
+       "comparisons": [
+         { "section": "hero", "reference": "reference-screenshots/hero.png", "clone": "clone-screenshots/hero.png", "verdict": "match" | "mismatch", "notes": "..." },
+         ...
+       ],
+       "overall_verdict": "pass" | "fail",
+       "checked_at": "<ISO timestamp>"
+     }
+     ```
+  5. If `overall_verdict` is `"fail"` → fix the mismatches and re-run this check. Do NOT proceed to Phase 2 with visual mismatches.
+  6. If `agent-browser` is genuinely unavailable (not installed, confirmed with `which agent-browser`): note it in PROGRESS.md AND in visual-regression.json with `"skipped_reason": "agent-browser not installed"`. This is acceptable but must be documented.
 
 For each acceptance criterion in `.ralph/tasks.json` for your task:
 - Mark as VERIFIED (test exists and passes), PARTIAL, or MISSING
@@ -269,7 +298,7 @@ For each E2E scenario assigned to this task in `.ralph/SPEC.md`:
 - Mark as COVERED or MISSING
 
 **Verdict:**
-- All VERIFIED + all E2E COVERED + tests + build green → write `dod_checklist` all `true` in state.json, then proceed to Phase 2
+- All VERIFIED + all E2E COVERED + tests + build green + skill artifacts present + visual regression pass → write `dod_checklist` all `true` (including `visual_regression` and `skill_artifacts`) in state.json, then proceed to Phase 2
 - Any FAIL or MISSING → fix the gaps and repeat from the top of DoD
 
 #### Phase 2 — Inline Architect Review (independent self-audit)
@@ -287,6 +316,14 @@ Check:
 - No scope creep (nothing built outside the spec)?
 - No unresolved `debug_session` with `confidence: low` in state.json?
 - **UI tasks only**: evidence in state.json or PROGRESS.md that before/during/after screenshots were taken? If not → REJECTED.
+- **Skill artifact check (hard gate):**
+  - If task description mentions `/ui-reverse-engineering`: does `.ralph/workers/worker-N/ui-measurements.json` exist and contain actual extracted data (not empty/placeholder)? If not → REJECTED.
+  - If task description mentions `/transition-reverse-engineering`: does `.ralph/workers/worker-N/transition-measurements.json` exist and contain actual extracted values? If not → REJECTED.
+- **Visual regression check (hard gate for UI tasks):**
+  - Does `.ralph/workers/worker-N/visual-regression.json` exist? Read it.
+  - Is `overall_verdict` set to `"pass"`? If `"fail"` or missing → REJECTED.
+  - Open the comparison screenshots and verify the worker's verdict is honest — if the screenshots show obvious differences but verdict says "match", → REJECTED with note "visual regression verdict dishonest".
+  - Exception: if `skipped_reason` is documented AND `agent-browser` is genuinely unavailable → acceptable, but note it in review.
 - **Read the actual source code** — not just test output. For each file touched, apply `CLAUDE.md § Code Correctness Rules`:
   - Are values passed to dependencies stable/fresh as the contract requires?
   - Are async operations that write to shared state cancellable?
@@ -294,7 +331,7 @@ Check:
 - Steelman: "What's the strongest reason to reject?" — if you find one, reject. If none, approve.
 
 **If APPROVED:**
-- Write `.ralph/workers/worker-N/state.json` — set `converged: true`, set `dod_checklist` all to `true`, add `architect_review: { status: "approved", reviewed_at: "<ISO>", notes: "<brief reason>" }` (preserve all other fields)
+- Write `.ralph/workers/worker-N/state.json` — set `converged: true`, set `dod_checklist` all to `true` (including `visual_regression` and `skill_artifacts` if applicable), add `architect_review: { status: "approved", reviewed_at: "<ISO>", notes: "<brief reason>" }` (preserve all other fields)
 - Write `.ralph/tasks.json` — set this task's `status` to `"converged"`
 - Continue to step 3 below
 

@@ -5,19 +5,30 @@ All notable changes to this project will be documented in this file.
 ## [0.1.8] - 2026-03-23
 
 ### Added
+- **Visual regression hard gate** — Convergence loop now requires automated visual comparison between reference site and clone via `agent-browser` screenshots. Workers must produce `.ralph/workers/worker-N/visual-regression.json` with per-section verdicts and `overall_verdict: "pass"` before converging. Graceful skip when `agent-browser` is genuinely unavailable.
+- **Skill artifact hard gate** — Tasks requiring `/ui-reverse-engineering` or `/transition-reverse-engineering` must produce physical artifact files (`ui-measurements.json`, `transition-measurements.json`) in the worker directory. Both PROGRESS.md `used_skills:` entry AND artifact file must exist — self-declared skill invocation without artifacts blocks convergence.
+- **Rubber-stamp detection** — Architect review now cross-checks `visual-regression.json` `overall_verdict` against per-section verdicts. Contradictions (e.g. `overall_verdict: "pass"` with failing sections) trigger rejection.
+- `dod_checklist.visual_regression` and `dod_checklist.skill_artifacts` — optional boolean fields added to `WorkerState` type for tracking new convergence gates.
 - **Architect pane in `ralph team`** — `ralph team N` now automatically spawns an architect pane with `claude --channels plugin:fakechat@claude-plugins-official`, eliminating the need to open a separate terminal. Recovery (`recover.ts`) excludes the architect pane from recyclable worker panes via `findArchitectPane()`.
 - Quick Start simplified — removed separate "Open architect session" step from README since `ralph team` now handles it.
 - fakechat plugin install instruction added to Quick Start.
+- **Eval coverage expanded** — 183 behavioral + 71 trigger = 254 total evals (was 166 + 69 = 235). New evals cover skill artifact creation/validation, visual regression workflow, rubber-stamp detection, and graceful agent-browser skip.
+  - `ralph-kage-bunshin-loop`: 60 behavioral + 13 trigger (was 50 + 11)
+  - `ralph-kage-bunshin-architect`: 24 behavioral + 12 trigger (was 20 + 12)
+  - `ralph-kage-bunshin-verify`: 21 behavioral + 11 trigger (was 18 + 11)
 
 ### Changed
 - **Architect pane runs with `--dangerously-skip-permissions`** — architect session previously launched without permission bypass, causing MCP tool calls (e.g. fakechat reply) to prompt for user approval and block autonomous operation. Now matches worker sessions.
+- `/ralph-kage-bunshin-loop` — Phase 1 (DoD) now enforces two new hard gates: skill artifact file existence + visual regression pass. Phase 2 (architect review) independently verifies both artifacts and visual comparison honesty.
+- `/ralph-kage-bunshin-verify` — report format expanded with Skill Artifacts and Visual Regression sections; PASS verdict now requires artifacts present + visual regression passed (when applicable).
+- `/ralph-kage-bunshin-architect` — replaced generic "runtime visual verification" with structured skill artifact verification and visual regression verification hard gates; added honesty check for rubber-stamped verdicts.
 
 ### Fixed
 - **Stale worker directory cleanup** — `ralph team N` now removes worker directories with IDs > N from previous runs. Previously, `ralph team 4` after `ralph team 5` left `worker-5/state.json` as a ghost, causing wake signals to dead ports and preventing clean state. Cleanup runs AFTER `killSession` to prevent write conflicts with still-running workers.
 - **Stale worker cleanup in recover** — `ralph recover` now also cleans up stale worker directories after spawning new workers (both existing session and fallback session paths).
 - **Task claiming fairness** — Workers now pick tasks using worker-ID offset (`(workerID - 1) % claimableCount`) instead of all racing for the lowest ID. When 4 workers simultaneously claim 4 tasks, each selects a different task, eliminating collision cascades from the 1-second optimistic concurrency window.
 - **`consecutive_failures` validation** — Added to `WORKER_STATE_REQUIRED_FIELDS` in `readWorkerState`. Previously a state.json missing this field passed validation, potentially causing `undefined` arithmetic downstream.
-- **Initial worker state consistency** — `createInitialWorkerState` now includes `external_service_block: false` in pathology and `approach_history: []`, matching the SKILL.md template contract.
+- **Initial worker state consistency** — `createInitialWorkerState` now includes `external_service_block: false` in pathology, `approach_history: []`, and `visual_regression: false` + `skill_artifacts: false` in `dod_checklist`, matching the SKILL.md template contract.
 
 ### Changed
 - **Channel-based notifications** — Workers now push real-time events (convergence, pathology, broadcasts) directly to architect session via [Claude Code Channels](https://code.claude.com/docs/en/channels) ([fakechat](https://code.claude.com/docs/en/channels#quickstart)). File-based mailbox system removed entirely.
@@ -37,7 +48,7 @@ All notable changes to this project will be documented in this file.
 - Dead code removed — `src/core/worktree.ts` (3 exported functions never imported anywhere).
 - Config validation — 24-hour upper bound enforced for `leaseDurationMs` and `stuckThresholdMs`.
 - `--watch` interval validation — rejects floats (`Number.isInteger`), not just NaN.
-- **Bidirectional fakechat channels** — Every worker now launches with its own fakechat channel (`--channels plugin:fakechat`, port 8788+N). When a task converges, the worker broadcasts `[WAKE]` signals to all other workers' fakechat ports, enabling instant dependency wake-up without `ralph recover`. Workers enter wait mode instead of exiting when no claimable tasks exist. See `docs/ADR-001-bidirectional-channels.md` for design rationale.
+- **Bidirectional fakechat channels** — Every worker now launches with its own fakechat channel (`--channels plugin:fakechat`, port 8788+N). When a task converges, the worker broadcasts `[WAKE]` signals to all other workers' fakechat ports, enabling instant dependency wake-up without `ralph recover`. Workers enter wait mode instead of exiting when no claimable tasks exist.
 - `WorkerState.fakechat_port` — records each worker's fakechat port in state.json so other participants can discover and POST to it.
 - `/ralph-kage-bunshin-loop` — wait mode: workers stay alive when blocked on dependencies, wake up instantly via fakechat signal. Convergence step now broadcasts to all peer workers. All architect-directed notifications use hardcoded port 8787 (not `$FAKECHAT_PORT` which is now the worker's own port).
 

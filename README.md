@@ -29,6 +29,8 @@
 | **Fair task claiming** | Worker-ID offset distribution — no collision cascades when multiple workers claim simultaneously |
 | **Task dependencies** | `depends_on` ensures correct ordering — workers wait automatically |
 | **Agent pipeline** | Worker → Debugger (on failure) → Verify → Architect review |
+| **Visual regression** | Automated screenshot comparison between reference site and clone via `agent-browser` — blocks convergence on mismatch |
+| **Skill artifacts** | Physical measurement files required to prove `/ui-reverse-engineering` and `/transition-reverse-engineering` were actually invoked |
 | **Pathology detection** | Detects stuck patterns (stagnation, oscillation, etc.) and exits cleanly |
 | **Auto-recovery** | `--watch` detects crashed workers, recycles orphaned panes, and spawns replacements in-place |
 | **Clean state** | `ralph team N` cleans up stale worker directories from previous runs |
@@ -79,7 +81,7 @@ ralph team 3
 1. **Setup** — `/ralph-kage-bunshin-start` interviews you, then generates `SPEC.md`, `tasks.json`, `CLAUDE.md`
 2. **Spawn** — `ralph team N` opens N worker panes + 1 architect pane + 1 status pane in tmux
 3. **Work** — Each worker claims a task → writes tests → implements → refactors
-4. **Converge** — Tests pass → verify acceptance criteria → architect review → mark `converged` → wake up waiting workers
+4. **Converge** — Tests pass → skill artifact check → visual regression → verify acceptance criteria → architect review → mark `converged` → wake up waiting workers
 5. **Wait & Wake** — Workers waiting for dependencies stay alive; when a task converges, wake signals are sent instantly via fakechat
 6. **Recover** — `--watch` auto-detects stuck/crashed workers and respawns (dependency waits no longer need recovery)
 
@@ -120,7 +122,7 @@ Six skills installed via [skills.sh](https://skills.sh) (see Quick Start).
 | `ralph-kage-bunshin-architect` | Approval authority — spec compliance, steelman review, atomic converged state writes |
 | `api-integration-checklist` | Pre-coding API integration check — CORS, auth, rate limits, proxy decision |
 
-Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`evals/trigger-eval.json`) compatible with [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md).
+Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`evals/trigger-eval.json`) compatible with [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md). 254 total test cases (183 behavioral + 71 trigger).
 
 ---
 
@@ -133,8 +135,13 @@ Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`ev
   .env              Secrets (gitignored, mode 0600)
   workers/
     worker-N/
-      state.json    Generation, pathology flags, cost
-      PROGRESS.md   Build log
+      state.json              Generation, pathology flags, cost
+      PROGRESS.md             Build log
+      ui-measurements.json    Skill artifact (if UI task)
+      transition-measurements.json  Skill artifact (if animation task)
+      visual-regression.json  Screenshot comparison verdicts
+      reference-screenshots/  Reference site screenshots
+      clone-screenshots/      Clone site screenshots
 
 CLAUDE.md             TDD rules, DoD criteria
 ```

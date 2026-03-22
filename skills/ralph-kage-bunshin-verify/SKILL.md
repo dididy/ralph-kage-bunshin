@@ -41,9 +41,18 @@ For each acceptance criterion in the task:
 For E2E scenarios assigned to this task in SPEC.md:
 - Mark as COVERED or MISSING
 
-For UI tasks — check runtime visual verification:
-- Look in PROGRESS.md or state.json for evidence of browser screenshots (before/during/after)
-- Mark as VERIFIED (evidence present + no failures noted), MISSING (no evidence), or FAILED (evidence shows unfixed visual bug)
+For UI tasks — check skill artifact files:
+- If the task description mentions `/ui-reverse-engineering`: check for `.ralph/workers/worker-N/ui-measurements.json`
+- If the task description mentions `/transition-reverse-engineering`: check for `.ralph/workers/worker-N/transition-measurements.json`
+- Mark as VERIFIED (artifact file exists with actual measurement data), MISSING (file does not exist), or EMPTY (file exists but contains placeholder/empty data)
+- Both MISSING and EMPTY count as failures — the worker must actually invoke the skill and produce real artifacts
+
+For UI tasks — check visual regression:
+- Check for `.ralph/workers/worker-N/visual-regression.json`
+- If it exists, read `overall_verdict` field — must be `"pass"`
+- Check for screenshot directories: `.ralph/workers/worker-N/reference-screenshots/` and `clone-screenshots/`
+- Mark as VERIFIED (`visual-regression.json` exists with `overall_verdict: "pass"` + screenshots present), FAILED (`overall_verdict: "fail"` or mismatches documented), MISSING (no visual-regression.json found)
+- FAILED and MISSING both count as failures — worker must run visual comparison before convergence
 
 ## Output Format
 
@@ -56,6 +65,14 @@ Build:     PASS | FAIL
 Acceptance Criteria:
   [ ] [criterion 1] — VERIFIED / PARTIAL / MISSING
   [ ] [criterion 2] — VERIFIED / PARTIAL / MISSING
+
+Skill Artifacts (if applicable):
+  [ ] ui-measurements.json — VERIFIED / MISSING / EMPTY
+  [ ] transition-measurements.json — VERIFIED / MISSING / EMPTY
+
+Visual Regression (if applicable):
+  [ ] visual-regression.json — VERIFIED / FAILED / MISSING
+  [ ] Screenshots present — YES / NO
 
 E2E Coverage (if applicable):
   [ ] [scenario 1] — COVERED / MISSING
@@ -70,9 +87,9 @@ Verdict: PASS | FAIL | INCOMPLETE
 
 ## Verdicts
 
-- **PASS**: All criteria VERIFIED, all E2E covered (if applicable), tests + build green
-- **FAIL**: Tests or build failing → worker must fix before calling Architect
-- **INCOMPLETE**: Tests pass but criteria/E2E not fully covered → worker must add missing tests
+- **PASS**: All criteria VERIFIED, all E2E covered (if applicable), tests + build green, skill artifacts present (if required), visual regression passed (if UI task)
+- **FAIL**: Tests or build failing, OR visual regression failed, OR required skill artifacts missing → worker must fix before calling Architect
+- **INCOMPLETE**: Tests pass but criteria/E2E not fully covered, OR skill artifacts empty/placeholder → worker must add missing tests or re-run skills
 
 **INCOMPLETE is not a soft PASS** — it means the worker has more work to do. Do not upgrade to PASS because 'most things work'. Every criterion matters.
 

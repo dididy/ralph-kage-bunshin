@@ -64,15 +64,25 @@ Check each of the following:
 - Are all E2E scenarios assigned to this task in `.ralph/SPEC.md` covered by Playwright tests?
 - If E2E tests are missing or incomplete for a UI task → **REJECT** with specific missing scenarios listed
 
-### Runtime visual verification (UI tasks only)
-- Check `state.json` or PROGRESS.md for evidence that the worker ran browser screenshots (before/during/after the interaction)
-- If no runtime verification was done:
-  - If the worker noted that `agent-browser` is unavailable → **acceptable** — skip this check
-  - Otherwise → **REJECT**: "Runtime visual check missing — worker must run agent-browser screenshots and confirm no white flash, blank frame, or layout jump"
-- If verification was done but a failure was noted and not fixed → **REJECT** with the specific visual defect
+### Skill Artifact Verification (UI/animation tasks only)
+- If the task description mentions `/ui-reverse-engineering`: check for `.ralph/workers/worker-N/ui-measurements.json`
+- If the task description mentions `/transition-reverse-engineering`: check for `.ralph/workers/worker-N/transition-measurements.json`
+- **Both** the artifact file AND a `used_skills:` entry in PROGRESS.md must exist
+- The artifact file must contain actual measurement data (not empty, not placeholder) — open it and verify it has real values
+- If required artifact is MISSING or EMPTY → **REJECT**: "Skill artifact [name] missing — worker must actually invoke the skill and produce measurement data before convergence"
+
+### Visual Regression Verification (UI tasks only)
+- Check for `.ralph/workers/worker-N/visual-regression.json`
+- If it exists: read `overall_verdict` — must be `"pass"`
+- Check for screenshot directories: `.ralph/workers/worker-N/reference-screenshots/` and `clone-screenshots/`
+- If `overall_verdict` is `"fail"` → **REJECT**: "Visual regression failed — worker must fix the documented mismatches before convergence"
+- If `visual-regression.json` does not exist:
+  - If the worker documented that `agent-browser` is genuinely unavailable → **acceptable** — skip this check
+  - Otherwise → **REJECT**: "Visual regression check missing — worker must run agent-browser screenshot comparison before convergence"
+- **Verify honesty**: if `overall_verdict: "pass"` but screenshots show obvious mismatches, or per-section verdicts conflict with the overall verdict → **REJECT**: "Visual regression verdict appears rubber-stamped — per-section results contradict overall pass"
 
 ### Animation/transition tasks — additional checks
-- For scroll-driven or animated UI: check for `measurements.json` or equivalent multi-point measurement data showing that the worker extracted actual values from the original at multiple progress points (not just start/end)
+- For scroll-driven or animated UI: check for `transition-measurements.json` with multi-point measurement data showing actual values extracted from the original at multiple progress points (not just start/end)
 - If the worker used hardcoded/guessed values without measurement evidence → **REJECT**: "Animation values must be measured from the original at 10%+ progress intervals. Guessed values produce wrong timing curves."
 - Frame-by-frame comparison table (ref vs impl at 5+ progress points) must exist and all rows must show ✅
 
@@ -102,7 +112,7 @@ This is not about finding problems for the sake of it. "No issues found" is a va
 ## Decision
 
 ### ✅ APPROVED
-All requirements are met. No scope violations. Tests are meaningful.
+All requirements are met. No scope violations. Tests are meaningful. Skill artifacts present (if required). Visual regression passed (if UI task).
 
 Do these two writes in order:
 

@@ -589,5 +589,77 @@
       "Does NOT echo full state.json content in output",
       "Preserves existing fields when writing"
     ]
+  },
+  {
+    "eval_id": 54,
+    "eval_name": "loop-55-skill-artifact-file-creation",
+    "prompt": "[entering DoD check]",
+    "setup": "Task description has '/ui-reverse-engineering', PROGRESS.md has used_skills entry, but no ui-measurements.json file exists",
+    "assertions": [
+      "Detects missing artifact file .ralph/workers/worker-N/ui-measurements.json",
+      "Does NOT converge — goes back to invoke the skill and produce the artifact",
+      "After re-running, writes ui-measurements.json with actual measurement data",
+      "Sets dod_checklist.skill_artifacts to true only after artifact file exists"
+    ]
+  },
+  {
+    "eval_id": 55,
+    "eval_name": "loop-56-transition-artifact-file-creation",
+    "prompt": "[entering DoD check]",
+    "setup": "Task description has '/transition-reverse-engineering', no transition-measurements.json exists",
+    "assertions": [
+      "Detects missing artifact file .ralph/workers/worker-N/transition-measurements.json",
+      "Does NOT converge — blocks until artifact exists with real data",
+      "Sets dod_checklist.skill_artifacts to true only after file exists"
+    ]
+  },
+  {
+    "eval_id": 56,
+    "eval_name": "loop-57-visual-regression-run",
+    "prompt": "[entering DoD check]",
+    "setup": "SPEC.md has ## Reference URL, UI task, agent-browser available",
+    "assertions": [
+      "Screenshots reference site sections with agent-browser",
+      "Screenshots clone site sections with agent-browser",
+      "Saves to .ralph/workers/worker-N/reference-screenshots/ and clone-screenshots/",
+      "Writes visual-regression.json with per-section verdicts and overall_verdict",
+      "Does NOT converge if overall_verdict is 'fail'"
+    ]
+  },
+  {
+    "eval_id": 57,
+    "eval_name": "loop-58-visual-regression-fail-blocks-convergence",
+    "prompt": "[entering DoD check]",
+    "setup": "visual-regression.json exists with overall_verdict:'fail', section 'hero' mismatched",
+    "assertions": [
+      "Reads visual-regression.json",
+      "Identifies failing sections",
+      "Goes back to fix mismatches before re-running visual regression",
+      "Does NOT write converged:true",
+      "Sets dod_checklist.visual_regression to false"
+    ]
+  },
+  {
+    "eval_id": 58,
+    "eval_name": "loop-59-visual-regression-skip-no-agent-browser",
+    "prompt": "[entering DoD check]",
+    "setup": "SPEC.md has ## Reference URL, UI task, agent-browser NOT installed (which agent-browser returns nothing)",
+    "assertions": [
+      "Documents that agent-browser is unavailable in PROGRESS.md",
+      "Does NOT fail or block convergence for this reason alone",
+      "Sets dod_checklist.visual_regression to false with documented skip reason"
+    ]
+  },
+  {
+    "eval_id": 59,
+    "eval_name": "loop-60-skill-artifact-empty-rejected",
+    "prompt": "[entering DoD check]",
+    "setup": "ui-measurements.json exists but contains {} or placeholder data",
+    "assertions": [
+      "Detects empty/placeholder artifact",
+      "Does NOT accept it as valid",
+      "Goes back to re-invoke the skill and produce real measurements",
+      "dod_checklist.skill_artifacts remains false"
+    ]
   }
 ]
