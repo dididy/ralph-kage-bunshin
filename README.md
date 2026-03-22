@@ -52,7 +52,9 @@ Inside Claude Code, install the fakechat plugin:
 /plugin install fakechat@claude-plugins-official
 ```
 
-Requires: **Node.js 18+**, **tmux**, **[Claude Code](https://claude.ai/code)**
+Requires: **Node.js 18+**, **tmux**, **[Claude Code](https://claude.ai/code)**, **[Channels](https://code.claude.com/docs/en/channels)** (v2.1.80+)
+
+> Workers communicate via [Claude Code Channels](https://code.claude.com/docs/en/channels) using the [fakechat plugin](https://code.claude.com/docs/en/channels#quickstart) for real-time notifications and wake signals.
 
 **2. Set up your project**
 ```bash
@@ -81,7 +83,7 @@ ralph team 3
 5. **Wait & Wake** — Workers waiting for dependencies stay alive; when a task converges, wake signals are sent instantly via fakechat
 6. **Recover** — `--watch` auto-detects stuck/crashed workers and respawns (dependency waits no longer need recovery)
 
-Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation. All communication uses **bidirectional fakechat channels**: workers push notifications to the architect (port 8787), and converging workers wake blocked peers by posting to their fakechat ports (8788, 8789, ...). The architect pane is spawned automatically by `ralph team`.
+Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation. All communication uses **bidirectional [Channels](https://code.claude.com/docs/en/channels)** via [fakechat](https://code.claude.com/docs/en/channels#quickstart): workers push notifications to the architect (port 8787), and converging workers wake blocked peers by posting to their fakechat ports (8788, 8789, ...). The architect pane is spawned automatically by `ralph team`.
 
 ---
 

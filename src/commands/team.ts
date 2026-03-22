@@ -129,7 +129,7 @@ export function runTeam(workerCount: number, projectDir: string): void {
   setPaneTitle(sessionName, architectPaneIdx, 'ralph-architect')
   sendKeys(sessionName, architectPaneIdx, `cd ${shellQuote(projectDir)}`)
   sendKeys(sessionName, architectPaneIdx, `export FAKECHAT_PORT='${fakechatPort}'`)
-  sendKeys(sessionName, architectPaneIdx, `claude --channels plugin:fakechat@claude-plugins-official`)
+  sendKeys(sessionName, architectPaneIdx, `claude --channels plugin:fakechat@claude-plugins-official --dangerously-skip-permissions`)
 
   // Status pane — set title for reliable identification by recover
   setPaneTitle(sessionName, statusPaneIdx, 'ralph-status')

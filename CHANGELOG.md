@@ -2,12 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.8] - 2026-03-22
+## [0.1.8] - 2026-03-23
 
 ### Added
 - **Architect pane in `ralph team`** — `ralph team N` now automatically spawns an architect pane with `claude --channels plugin:fakechat@claude-plugins-official`, eliminating the need to open a separate terminal. Recovery (`recover.ts`) excludes the architect pane from recyclable worker panes via `findArchitectPane()`.
 - Quick Start simplified — removed separate "Open architect session" step from README since `ralph team` now handles it.
 - fakechat plugin install instruction added to Quick Start.
+
+### Changed
+- **Architect pane runs with `--dangerously-skip-permissions`** — architect session previously launched without permission bypass, causing MCP tool calls (e.g. fakechat reply) to prompt for user approval and block autonomous operation. Now matches worker sessions.
 
 ### Fixed
 - **Stale worker directory cleanup** — `ralph team N` now removes worker directories with IDs > N from previous runs. Previously, `ralph team 4` after `ralph team 5` left `worker-5/state.json` as a ghost, causing wake signals to dead ports and preventing clean state. Cleanup runs AFTER `killSession` to prevent write conflicts with still-running workers.
@@ -17,7 +20,7 @@ All notable changes to this project will be documented in this file.
 - **Initial worker state consistency** — `createInitialWorkerState` now includes `external_service_block: false` in pathology and `approach_history: []`, matching the SKILL.md template contract.
 
 ### Changed
-- **Channel-based notifications** — Workers now push real-time events (convergence, pathology, broadcasts) directly to architect session via [Claude Code Channels](https://code.claude.com/docs/en/channels) (fakechat). File-based mailbox system removed entirely.
+- **Channel-based notifications** — Workers now push real-time events (convergence, pathology, broadcasts) directly to architect session via [Claude Code Channels](https://code.claude.com/docs/en/channels) ([fakechat](https://code.claude.com/docs/en/channels#quickstart)). File-based mailbox system removed entirely.
 - **`status --watch` role clarified** — `status --watch` retains macOS/Slack/Discord notifications for convergence and pathology events (user-facing). Fakechat notifications are worker-owned (pushed directly via curl), preventing duplication. Default polling interval changed from 5s to 30s.
 - **`fakechat_channel` config removed** — Replaced by `fakechat_port` (optional). Workers use `$FAKECHAT_PORT` env var (written to `.env` by `ralph team`).
 
