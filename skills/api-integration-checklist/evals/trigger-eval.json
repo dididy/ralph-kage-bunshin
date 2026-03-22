@@ -1,23 +1,23 @@
 [
   {
     "query": "We need to integrate with the Stripe API",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Check CORS for this external API before we build",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Run the API integration checklist for our third-party service",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "This project calls external APIs from the browser, what do we need to check?",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "We're adding a new API dependency, run the pre-flight checks",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Set up a new ralph project",

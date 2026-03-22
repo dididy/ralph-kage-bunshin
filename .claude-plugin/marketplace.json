@@ -8,7 +8,7 @@
       "name": "ralph-kage-bunshin",
       "source": "./",
       "description": "Six skills for orchestrating parallel Claude Code workers: project setup interview, TDD worker loop with inline verify + architect review, debugger for root-cause diagnosis, standalone verifier and architect tools, and an API integration checklist for external service CORS/proxy decisions.",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "author": {
         "name": "Yongjae Lee"
       },
@@ -31,7 +31,7 @@
         "pathology-detection",
         "auto-recovery",
         "git-worktree",
-        "mailbox",
+        "channels",
         "convergence",
         "coding-agent",
         "ai-coding",

@@ -120,10 +120,11 @@
     "eval_id": 11,
     "eval_name": "start-12-clone-url-detection",
     "prompt": "Clone the landing page at https://example.com using ralph",
-    "setup": "Empty directory",
+    "setup": "Empty directory, agent-browser not installed",
     "assertions": [
-      "Checks for agent-browser installation",
-      "Attempts to analyze the reference URL",
+      "Checks for agent-browser installation (which agent-browser)",
+      "Prompts user to install if missing (npm install -g @anthropic-ai/agent-browser)",
+      "Launches agent-browser to analyze the reference URL",
       "Task descriptions include /ui-reverse-engineering"
     ]
   },
@@ -335,7 +336,7 @@
     "setup": "Clone project with animations detected",
     "assertions": [
       "Animation-specific tasks include /transition-reverse-engineering in description",
-      "Does NOT use only /ui-reverse-engineering for animation tasks"
+      "Also includes /ui-reverse-engineering for layout tasks (both skills used, not just one)"
     ]
   },
   {

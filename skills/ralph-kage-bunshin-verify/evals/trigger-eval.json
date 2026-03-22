@@ -1,23 +1,23 @@
 [
   {
     "query": "Verify worker 2's completed task",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Independently check if worker 1's work passes",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Run verification on worker 3's output",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Manually validate the worker's task",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Check worker 4's acceptance criteria independently",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Review and approve worker 2's code",

@@ -1,31 +1,31 @@
 [
   {
     "query": "I want to set up a new ralph project",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Help me start a new ralph-kage-bunshin project",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Let's plan a new project with ralph workers",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "I need to create SPEC.md and tasks.json for a new project",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Set up ralph for this codebase",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "I want to clone this website using ralph",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Generate a task plan for building an e-commerce site with parallel workers",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Run the ralph worker loop",

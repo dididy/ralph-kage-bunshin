@@ -1,5 +1,4 @@
 import { readTasks, readWorkerState, resetExpiredLeases, resetStuckTasks } from '../core/state'
-import { countUnread, listMessages, pruneMailbox } from '../core/mailbox'
 import { notify } from '../core/notify'
 import { loadConfig } from '../core/config'
 import { runRecover } from './recover'
@@ -38,11 +37,14 @@ export function getStatus(projectDir: string): RalphStatus {
       }
     }
 
-    const startTime = new Date(state.started_at).getTime()
+    // Use claimed_at from task (most reliable), fall back to state.started_at
+    const claimedAt = task.claimed_at ? new Date(task.claimed_at).getTime() : NaN
+    const startTime = !isNaN(claimedAt) ? claimedAt : new Date(state.started_at).getTime()
     const elapsed = isNaN(startTime) ? 0 : Math.floor((Date.now() - startTime) / 60000)
     const pathologyType = state.pathology.stagnation ? 'Stagnation'
       : state.pathology.oscillation ? 'Oscillation'
       : state.pathology.wonder_loop ? 'WonderLoop'
+      : state.pathology.external_service_block ? 'ExternalServiceBlock'
       : null
 
     const architectStatus = state.architect_review?.status ?? (
@@ -93,10 +95,6 @@ export function printStatus(
     runRecover(projectDir, sessionName)
   }
 
-  if (autoRecover) {
-    pruneMailbox(projectDir)
-  }
-
   const { workers, maxElapsedMinutes } = getStatus(projectDir)
   const config = loadConfig()
 
@@ -110,6 +108,7 @@ export function printStatus(
       : ''
     console.log(`  ${icon} worker-${w.workerId} [${w.task}] gen.${w.generation}${pathInfo}${archInfo}`)
 
+    // macOS / Slack / Discord notifications (fakechat handled by workers directly)
     if (w.converged && !notifiedConverged.has(w.workerId)) {
       notify({ title: 'Ralph', message: `CONVERGED: worker-${w.workerId} [${w.task}]`, config })
       notifiedConverged.add(w.workerId)
@@ -119,29 +118,7 @@ export function printStatus(
     }
   }
 
-  const unread = countUnread(projectDir)
-  if (unread > 0) {
-    console.log(`\nMailbox: ${unread} unread message${unread === 1 ? '' : 's'} (run ralph status --messages to view)`)
-  }
-
   const h = Math.floor(maxElapsedMinutes / 60)
   const m = maxElapsedMinutes % 60
   console.log(`\nElapsed: ${h}h ${m}m\n`)
-}
-
-export function printMessages(projectDir: string): void {
-  const msgs = listMessages(projectDir)
-  if (msgs.length === 0) {
-    console.log('No messages in mailbox.')
-    return
-  }
-  console.log(`\nMailbox (${msgs.length} message${msgs.length === 1 ? '' : 's'}):\n`)
-  for (const m of msgs) {
-    const read = m.read ? '[read]' : '[unread]'
-    const to = m.to === 'all' ? 'all' : `worker-${m.to}`
-    console.log(`  ${read} worker-${m.from} → ${to} [${m.type}] ${m.subject}`)
-    console.log(`         ${m.timestamp}`)
-    if (m.body) console.log(`         ${m.body}`)
-    console.log()
-  }
 }

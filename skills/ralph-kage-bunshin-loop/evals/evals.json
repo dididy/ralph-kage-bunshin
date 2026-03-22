@@ -12,12 +12,13 @@
   },
   {
     "eval_id": 1,
-    "eval_name": "loop-02-claims-lowest-id",
+    "eval_name": "loop-02-claims-by-worker-offset",
     "prompt": "[loop starts]",
-    "setup": "tasks: [{id:1, status:'converged'}, {id:2, status:'pending', depends_on:[1]}, {id:3, status:'pending', depends_on:[1]}]",
+    "setup": "RALPH_WORKER_ID=2, tasks: [{id:1, status:'converged'}, {id:2, status:'pending', depends_on:[1]}, {id:3, status:'pending', depends_on:[1]}, {id:4, status:'pending', depends_on:[1]}]",
     "assertions": [
-      "Claims task 2 (lowest claimable), not task 3",
-      "Writes status:'in-progress', worker: N, claimed_at, lease_expires_at to tasks.json"
+      "Sorts claimable tasks by ID ascending: [2,3,4]",
+      "Calculates index = (2 - 1) % 3 = 1, picks task 3 (not task 2)",
+      "Writes status:'in-progress', worker: 2, claimed_at, lease_expires_at to tasks.json"
     ]
   },
   {
@@ -39,7 +40,7 @@
     "setup": "tasks: [{id:1, status:'in-progress', worker:1}, {id:2, status:'pending', depends_on:[1]}]",
     "assertions": [
       "Does NOT claim task 2",
-      "Enters wait loop (sleep 30s, re-check)",
+      "Enters wait mode (prints [WAIT], listens for [WAKE] via fakechat, fallback polls every 60s)",
       "Does NOT proceed with implementation"
     ]
   },
@@ -57,15 +58,12 @@
   },
   {
     "eval_id": 5,
-    "eval_name": "loop-06-reads-mailbox",
+    "eval_name": "loop-06-reads-previous-worker-progress",
     "prompt": "[after claiming task]",
-    "setup": "Mailbox with unread task_complete and broadcast messages",
+    "setup": "Other workers have PROGRESS.md with learnings",
     "assertions": [
-      "Reads .ralph/mailbox/ files",
-      "Skips files ending in .read",
-      "Renames processed files to .read",
-      "Applies broadcast corrections immediately",
-      "Extracts learnings from task_complete messages"
+      "Reads other workers' PROGRESS.md for learnings",
+      "Applies learnings as constraints before implementing"
     ]
   },
   {
@@ -163,9 +161,10 @@
     "eval_id": 14,
     "eval_name": "loop-15-converge-then-claim-next",
     "prompt": "[after convergence]",
-    "setup": "Just converged on task 2, task 3 is pending and claimable",
+    "setup": "Just converged on task 2, task 3 is pending and claimable, worker-4 is in wait mode",
     "assertions": [
-      "Writes task_complete mailbox message with learnings",
+      "Pushes convergence notification to architect (curl POST to localhost:8787/upload)",
+      "Sends [WAKE] signal to other workers' fakechat ports",
       "Does NOT exit",
       "Goes back to 'On Start' and claims task 3",
       "Starts new loop iteration"
@@ -177,9 +176,9 @@
     "prompt": "[discovers environment issue or API mismatch]",
     "setup": "Worker discovers API param name is wrong mid-implementation",
     "assertions": [
-      "Writes broadcast message to .ralph/mailbox/",
-      "Message has type: 'broadcast', to: 'all'",
-      "Does NOT wait for task_complete to share the discovery"
+      "Pushes broadcast via fakechat channel (curl POST to localhost:8787/upload)",
+      "Appends discovery to CLAUDE.md under Environment Notes",
+      "Does NOT wait for convergence to share the discovery"
     ]
   },
   {
@@ -263,12 +262,13 @@
   },
   {
     "eval_id": 23,
-    "eval_name": "loop-24-all-in-progress-recover-exit",
+    "eval_name": "loop-24-all-in-progress-wait-mode",
     "prompt": "[loop starts]",
     "setup": "No pending tasks, 2 in-progress tasks by other workers",
     "assertions": [
-      "Runs ralph recover",
-      "Then exits"
+      "Enters wait mode (prints [WAIT], listens for [WAKE] via fakechat)",
+      "Does NOT exit — a task may fail or converge, unlocking work",
+      "On receiving [WAKE] signal, re-reads tasks.json and checks for claimable tasks"
     ]
   },
   {
@@ -422,8 +422,9 @@
     "assertions": [
       "(1) Updates pathology in state.json",
       "(2) Sets task status to 'pathology' in tasks.json",
-      "(3) Writes PROGRESS.md with 'PATHOLOGY'",
-      "(4) Exits loop"
+      "(3) Pushes [PATHOLOGY] notification to architect (curl POST to localhost:8787/upload)",
+      "(4) Writes PROGRESS.md with 'result: PATHOLOGY — [type]'",
+      "(5) Exits loop"
     ]
   },
   {
@@ -484,7 +485,8 @@
     "setup": "Phase 2 cannot reach verdict in time",
     "assertions": [
       "Writes architect_review_timeout:true to state.json",
-      "Sets task status to 'pathology'",
+      "Sets task status to 'pathology' in tasks.json",
+      "Pushes [PATHOLOGY] notification to architect (curl POST to localhost:8787/upload)",
       "Exits"
     ]
   },
@@ -503,8 +505,9 @@
     "eval_id": 46,
     "eval_name": "loop-47-worktree-merge-cleanup",
     "prompt": "[after convergence of isolated task]",
-    "setup": "Isolated task converged, git remote exists",
+    "setup": "Isolated task converged, git remote exists, RALPH_AUTO_PUSH=true in .ralph/.env",
     "assertions": [
+      "Checks for RALPH_AUTO_PUSH=true before pushing",
       "Pushes branch",
       "Creates PR via gh",
       "Removes worktree",
@@ -513,11 +516,11 @@
   },
   {
     "eval_id": 47,
-    "eval_name": "loop-48-task-complete-mailbox-schema",
+    "eval_name": "loop-48-convergence-channel-notification",
     "prompt": "[after convergence]",
     "setup": "Task converged",
     "assertions": [
-      "Message has from, to:'all', type:'task_complete', subject, body, learnings array (non-empty if learnings exist), timestamp"
+      "Sends fakechat notification with [CONVERGED] prefix, worker ID, task name, generation, and learnings"
     ]
   },
   {
@@ -539,6 +542,52 @@
     "assertions": [
       "Implements only login form",
       "Does NOT add unrequested features"
+    ]
+  },
+  {
+    "eval_id": 50,
+    "eval_name": "loop-51-wait-mode-wake-signal",
+    "prompt": "[in wait mode, receives fakechat message]",
+    "setup": "Worker in wait mode, receives '[WAKE] Task converged by worker-2'",
+    "assertions": [
+      "Re-reads tasks.json from disk",
+      "Checks for newly claimable tasks",
+      "If claimable task found, claims it and resumes loop",
+      "If still no claimable tasks, continues waiting"
+    ]
+  },
+  {
+    "eval_id": 51,
+    "eval_name": "loop-52-worktree-no-push-without-auth",
+    "prompt": "[after convergence of isolated task]",
+    "setup": "Isolated task converged, git remote exists, RALPH_AUTO_PUSH not set",
+    "assertions": [
+      "Does NOT push branch",
+      "Does NOT create PR",
+      "Logs 'push skipped — set RALPH_AUTO_PUSH=true' in PROGRESS.md",
+      "Still removes worktree and cleans up"
+    ]
+  },
+  {
+    "eval_id": 52,
+    "eval_name": "loop-53-fakechat-port-from-env",
+    "prompt": "[loop starts]",
+    "setup": "FAKECHAT_PORT=8789, architect always on 8787",
+    "assertions": [
+      "Uses $FAKECHAT_PORT for own channel",
+      "Sends notifications to architect on port 8787 (not own port)",
+      "Does NOT hardcode own port"
+    ]
+  },
+  {
+    "eval_id": 53,
+    "eval_name": "loop-54-credential-safety-state-json",
+    "prompt": "[updating state.json]",
+    "setup": "state.json contains debug_session with API key in error output",
+    "assertions": [
+      "Uses read-modify-write pattern (updates only needed fields)",
+      "Does NOT echo full state.json content in output",
+      "Preserves existing fields when writing"
     ]
   }
 ]

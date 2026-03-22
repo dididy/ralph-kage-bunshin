@@ -36,6 +36,12 @@ describe('ralph recover', () => {
       caffeinate: false,
     })
     vi.mocked(fs.existsSync).mockReturnValue(false)
+    vi.mocked(fs.readFileSync).mockReturnValue('')
+    vi.mocked(fs.mkdirSync).mockReturnValue(undefined as any)
+    vi.mocked(fs.appendFileSync).mockReturnValue(undefined)
+    vi.mocked(fs.chmodSync).mockReturnValue(undefined)
+    vi.mocked(fs.readdirSync).mockReturnValue([] as any)
+    vi.mocked(fs.rmSync).mockReturnValue(undefined)
   })
 
   it('does not create a session when there are no pending tasks', () => {
@@ -237,7 +243,7 @@ describe('ralph recover', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     runRecover('/tmp/project', 'ralph-session')
     expect(tmux.killPane).toHaveBeenCalled()
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Recycling converged pane'))
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Replacing pane'))
     spy.mockRestore()
   })
 
@@ -294,6 +300,69 @@ describe('ralph recover', () => {
     expect(tmux.splitPane).toHaveBeenCalledTimes(1)
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('Spawning new pane'))
     spy.mockRestore()
+  })
+
+  it('writes FAKECHAT_PORT to .env when missing', () => {
+    vi.mocked(state.resetExpiredLeases).mockReturnValue([])
+    vi.mocked(state.readTasks).mockReturnValue([
+      { id: 1, name: 'todo', status: 'pending', worker: null },
+    ])
+    vi.mocked(state.getClaimableTasks).mockReturnValue([
+      { id: 1, name: 'todo', status: 'pending', worker: null },
+    ])
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    vi.mocked(fs.readFileSync).mockReturnValue('')
+    runRecover('/tmp/project')
+    expect(fs.appendFileSync).toHaveBeenCalledWith(
+      expect.stringContaining('.env'),
+      expect.stringContaining('FAKECHAT_PORT')
+    )
+  })
+
+  it('launches recovered workers with --channels flag and per-worker FAKECHAT_PORT', () => {
+    vi.mocked(state.resetExpiredLeases).mockReturnValue([])
+    vi.mocked(state.readTasks).mockReturnValue([
+      { id: 1, name: 'done', status: 'converged', worker: 1 },
+      { id: 2, name: 'todo', status: 'pending', worker: null },
+    ])
+    vi.mocked(state.getClaimableTasks).mockReturnValue([
+      { id: 2, name: 'todo', status: 'pending', worker: null },
+    ])
+    vi.mocked(tmux.sessionExists).mockReturnValue(true)
+    vi.mocked(tmux.getPaneCommands).mockReturnValue(new Map([[1, 'zsh']]))
+    vi.mocked(tmux.getPaneTitles).mockReturnValue(new Map())
+    vi.mocked(tmux.findIdlePanes).mockReturnValue([1])
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    runRecover('/tmp/project', 'ralph-session')
+    const allCmds = vi.mocked(tmux.sendKeys).mock.calls.map(c => c[2])
+    const claudeCmd = allCmds.find(c => c.includes('claude'))
+    expect(claudeCmd).toContain('--channels plugin:fakechat@claude-plugins-official')
+    // Worker ID 2 (max existing is 1, so new = 2) → port 8789
+    expect(allCmds).toContain("export FAKECHAT_PORT='8789'")
+    vi.restoreAllMocks()
+  })
+
+  it('passes fakechatPort to initWorkerState during recovery', () => {
+    vi.mocked(state.resetExpiredLeases).mockReturnValue([])
+    vi.mocked(state.readTasks).mockReturnValue([
+      { id: 1, name: 'done', status: 'converged', worker: 1 },
+      { id: 2, name: 'todo', status: 'pending', worker: null },
+    ])
+    vi.mocked(state.getClaimableTasks).mockReturnValue([
+      { id: 2, name: 'todo', status: 'pending', worker: null },
+    ])
+    vi.mocked(tmux.sessionExists).mockReturnValue(true)
+    vi.mocked(tmux.getPaneCommands).mockReturnValue(new Map([[1, 'zsh']]))
+    vi.mocked(tmux.getPaneTitles).mockReturnValue(new Map())
+    vi.mocked(tmux.findIdlePanes).mockReturnValue([1])
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    runRecover('/tmp/project', 'ralph-session')
+    expect(state.initWorkerState).toHaveBeenCalledWith(
+      '/tmp/project', 2, { preserveStartedAt: true, fakechatPort: 8789 }
+    )
+    vi.restoreAllMocks()
   })
 
   it('sources .env file when it exists during pane recovery', () => {

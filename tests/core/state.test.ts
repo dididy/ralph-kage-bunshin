@@ -163,6 +163,36 @@ describe('state', () => {
     expect(loaded!.task).toBe('pending')
   })
 
+  it('initWorkerState preserves started_at when preserveStartedAt is true', () => {
+    const oldStartedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+    const oldState = { ...createInitialWorkerState(1), started_at: oldStartedAt }
+    writeWorkerState(tmpDir, 1, oldState)
+    initWorkerState(tmpDir, 1, { preserveStartedAt: true })
+    const loaded = readWorkerState(tmpDir, 1)
+    expect(loaded?.started_at).toBe(oldStartedAt)
+  })
+
+  it('initWorkerState resets started_at when preserveStartedAt is false', () => {
+    const oldStartedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+    const oldState = { ...createInitialWorkerState(1), started_at: oldStartedAt }
+    writeWorkerState(tmpDir, 1, oldState)
+    initWorkerState(tmpDir, 1)
+    const loaded = readWorkerState(tmpDir, 1)
+    expect(loaded?.started_at).not.toBe(oldStartedAt)
+  })
+
+  it('initWorkerState sets fakechat_port when option provided', () => {
+    initWorkerState(tmpDir, 1, { fakechatPort: 8788 })
+    const loaded = readWorkerState(tmpDir, 1)
+    expect(loaded?.fakechat_port).toBe(8788)
+  })
+
+  it('initWorkerState does not set fakechat_port when option omitted', () => {
+    initWorkerState(tmpDir, 1)
+    const loaded = readWorkerState(tmpDir, 1)
+    expect(loaded?.fakechat_port).toBeUndefined()
+  })
+
   describe('lease', () => {
     it('claimTask sets claimed_at and lease_expires_at 30 minutes out', () => {
       const data = { tasks: [{ id: 1, name: 'auth', status: 'pending', worker: null }] }

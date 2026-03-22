@@ -116,6 +116,32 @@ describe('config', () => {
     spy.mockRestore()
   })
 
+  it('returns defaults when leaseDurationMs exceeds 24 hours', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
+      caffeinate: true,
+      leaseDurationMs: 25 * 60 * 60 * 1000,
+    }))
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig()
+    expect(config.leaseDurationMs).toBeUndefined()
+    spy.mockRestore()
+  })
+
+  it('returns defaults when stuckThresholdMs exceeds 24 hours', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
+      caffeinate: true,
+      stuckThresholdMs: 25 * 60 * 60 * 1000,
+    }))
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig()
+    expect(config.stuckThresholdMs).toBeUndefined()
+    spy.mockRestore()
+  })
+
   it('returns defaults when notifications is null', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
     vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({

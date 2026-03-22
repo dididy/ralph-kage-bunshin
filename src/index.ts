@@ -3,7 +3,7 @@ import { Command } from 'commander'
 import { stopCaffeinate } from './core/caffeinate'
 import { runTeam } from './commands/team'
 import { runRecover } from './commands/recover'
-import { printStatus, printMessages } from './commands/status'
+import { printStatus } from './commands/status'
 import { listProfiles, applyProfile } from './commands/profile'
 import { setSecret, unsetSecret, listSecrets } from './commands/secrets'
 import { printReport } from './commands/report'
@@ -41,18 +41,13 @@ program
 program
   .command('status')
   .description('Show all worker status')
-  .option('-w, --watch [seconds]', 'Refresh every N seconds (default: 5)')
-  .option('-m, --messages', 'Show all mailbox messages')
+  .option('-w, --watch [seconds]', 'Refresh every N seconds (default 30 if omitted)')
   .option('--no-recover', 'Disable auto-recovery of expired leases in watch mode')
-  .action((opts: { watch?: string | boolean; messages?: boolean; recover?: boolean }) => {
+  .action((opts: { watch?: string | boolean; recover?: boolean }) => {
     const cwd = process.cwd()
-    if (opts.messages) {
-      printMessages(cwd)
-      return
-    }
     if (opts.watch !== undefined) {
-      const rawInterval = opts.watch === true ? 5 : parseInt(opts.watch as string, 10)
-      if (isNaN(rawInterval) || rawInterval < 1) {
+      const rawInterval = opts.watch === true ? 30 : parseInt(opts.watch as string, 10)
+      if (!Number.isInteger(rawInterval) || rawInterval < 1) {
         console.error('Error: --watch interval must be a positive integer (seconds)')
         process.exit(1)
       }

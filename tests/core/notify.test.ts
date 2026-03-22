@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { notify } from '../../src/core/notify'
+import { notify, getFakechatPort } from '../../src/core/notify'
 import { execFileSync } from 'child_process'
 
 vi.mock('child_process')
@@ -107,5 +107,29 @@ describe('notify', () => {
       config: { ...baseConfig, notifications: { macos: false, slack_webhook: '', discord_webhook: '' } }
     })
     expect(mockExec).not.toHaveBeenCalled()
+  })
+
+  it('does not post to fakechat from notify (workers post directly via curl)', () => {
+    const mockExec = vi.mocked(execFileSync)
+    mockExec.mockReturnValue(Buffer.from(''))
+    notify({
+      title: 'Ralph', message: 'CONVERGED: worker-1',
+      config: { ...baseConfig, notifications: { macos: false, slack_webhook: '', discord_webhook: '' } }
+    })
+    expect(mockExec).not.toHaveBeenCalled()
+  })
+})
+
+describe('getFakechatPort', () => {
+  it('returns config port when set', () => {
+    const config = { ...baseConfig, notifications: { ...baseConfig.notifications, fakechat_port: '9999' } }
+    expect(getFakechatPort(config)).toBe('9999')
+  })
+
+  it('returns default 8787 when no config or env', () => {
+    const originalEnv = process.env.FAKECHAT_PORT
+    delete process.env.FAKECHAT_PORT
+    expect(getFakechatPort(baseConfig)).toBe('8787')
+    if (originalEnv) process.env.FAKECHAT_PORT = originalEnv
   })
 })

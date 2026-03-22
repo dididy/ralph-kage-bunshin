@@ -73,8 +73,8 @@ export function writeTasks(projectDir: string, tasks: Task[]): void {
 }
 
 const WORKER_STATE_REQUIRED_FIELDS = [
-  'worker_id', 'task', 'generation', 'converged', 'pathology',
-  'dod_checklist', 'last_results', 'started_at', 'updated_at',
+  'worker_id', 'task', 'generation', 'consecutive_failures', 'converged',
+  'pathology', 'dod_checklist', 'last_results', 'started_at', 'updated_at',
 ] as const
 
 export function readWorkerState(projectDir: string, workerId: number): WorkerState | null {
@@ -111,7 +111,8 @@ export function createInitialWorkerState(workerId: number): WorkerState {
     generation: 0,
     consecutive_failures: 0,
     last_results: [],
-    pathology: { stagnation: false, oscillation: false, wonder_loop: false },
+    pathology: { stagnation: false, oscillation: false, wonder_loop: false, external_service_block: false },
+    approach_history: [],
     dod_checklist: { npm_test: false, npm_build: false, tasks_complete: false },
     converged: false,
     started_at: now,
@@ -119,8 +120,18 @@ export function createInitialWorkerState(workerId: number): WorkerState {
   }
 }
 
-export function initWorkerState(projectDir: string, workerId: number): void {
-  writeWorkerState(projectDir, workerId, createInitialWorkerState(workerId))
+export function initWorkerState(projectDir: string, workerId: number, opts?: { preserveStartedAt?: boolean; fakechatPort?: number }): void {
+  const fresh = createInitialWorkerState(workerId)
+  if (opts?.preserveStartedAt) {
+    const existing = readWorkerState(projectDir, workerId)
+    if (existing?.started_at) {
+      fresh.started_at = existing.started_at
+    }
+  }
+  if (opts?.fakechatPort) {
+    fresh.fakechat_port = opts.fakechatPort
+  }
+  writeWorkerState(projectDir, workerId, fresh)
 }
 
 export function updateTaskStatus(projectDir: string, taskId: number, status: Task['status']): void {

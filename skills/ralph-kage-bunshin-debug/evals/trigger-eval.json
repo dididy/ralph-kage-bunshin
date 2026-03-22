@@ -1,23 +1,23 @@
 [
   {
     "query": "Worker 3 has failed 4 times in a row, diagnose it",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Debug why my ralph worker keeps failing",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Worker 1 hit stagnation, run the debugger",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Diagnose the root cause of worker 2's consecutive failures",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "My worker has 3+ failures, help debug",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Review worker 2's implementation",

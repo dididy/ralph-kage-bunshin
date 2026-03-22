@@ -31,6 +31,10 @@ function postWebhook(url: string, body: string): void {
   }
 }
 
+export function getFakechatPort(config: RalphConfig): string {
+  return config.notifications.fakechat_port ?? process.env.FAKECHAT_PORT ?? '8787'
+}
+
 export function notify({ title, message, config }: NotifyOptions): void {
   if (config.notifications.macos) {
     try {
@@ -48,4 +52,7 @@ export function notify({ title, message, config }: NotifyOptions): void {
   if (config.notifications.discord_webhook) {
     postWebhook(config.notifications.discord_webhook, JSON.stringify({ content: `**${title}**: ${message}` }))
   }
+
+  // fakechat notifications are sent directly by workers via curl POST,
+  // not duplicated here. Use getFakechatPort() if you need the port.
 }

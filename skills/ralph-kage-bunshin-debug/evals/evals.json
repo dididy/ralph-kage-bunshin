@@ -92,9 +92,10 @@
     "eval_id": 8,
     "eval_name": "debug-09-next-diagnostic-step-field",
     "prompt": "Diagnose worker 1's failure",
-    "setup": "Ambiguous error with no clear root cause",
+    "setup": "Ambiguous error with no clear root cause, confidence should be 'low'",
     "assertions": [
-      "debug_session in state.json contains next_diagnostic_step field",
+      "confidence is set to 'low' (not 'high' or 'medium')",
+      "debug_session in state.json contains next_diagnostic_step field (only present when confidence is low)",
       "next_diagnostic_step has a concrete action, not vague guidance",
       "The step is written to state.json, not just stated in output text"
     ]

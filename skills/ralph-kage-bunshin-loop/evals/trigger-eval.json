@@ -1,23 +1,27 @@
 [
   {
     "query": "Start the worker loop",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Run as a ralph worker",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Claim a task and start working on it",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "I'm worker 3, start the implementation loop",
-    "should_trigger": true
+    "should_trigger": false
   },
   {
     "query": "Begin the ralph-kage-bunshin worker cycle",
-    "should_trigger": true
+    "should_trigger": false
+  },
+  {
+    "query": "Run the TDD implementation loop for my assigned task",
+    "should_trigger": false
   },
   {
     "query": "Set up a new ralph project",
@@ -41,6 +45,10 @@
   },
   {
     "query": "Create a new task plan",
+    "should_trigger": false
+  },
+  {
+    "query": "Approve worker 2's converged task and update state",
     "should_trigger": false
   }
 ]

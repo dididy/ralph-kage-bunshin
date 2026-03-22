@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.8] - 2026-03-22
+
+### Added
+- **Architect pane in `ralph team`** — `ralph team N` now automatically spawns an architect pane with `claude --channels plugin:fakechat@claude-plugins-official`, eliminating the need to open a separate terminal. Recovery (`recover.ts`) excludes the architect pane from recyclable worker panes via `findArchitectPane()`.
+- Quick Start simplified — removed separate "Open architect session" step from README since `ralph team` now handles it.
+- fakechat plugin install instruction added to Quick Start.
+
+### Fixed
+- **Stale worker directory cleanup** — `ralph team N` now removes worker directories with IDs > N from previous runs. Previously, `ralph team 4` after `ralph team 5` left `worker-5/state.json` as a ghost, causing wake signals to dead ports and preventing clean state. Cleanup runs AFTER `killSession` to prevent write conflicts with still-running workers.
+- **Stale worker cleanup in recover** — `ralph recover` now also cleans up stale worker directories after spawning new workers (both existing session and fallback session paths).
+- **Task claiming fairness** — Workers now pick tasks using worker-ID offset (`(workerID - 1) % claimableCount`) instead of all racing for the lowest ID. When 4 workers simultaneously claim 4 tasks, each selects a different task, eliminating collision cascades from the 1-second optimistic concurrency window.
+- **`consecutive_failures` validation** — Added to `WORKER_STATE_REQUIRED_FIELDS` in `readWorkerState`. Previously a state.json missing this field passed validation, potentially causing `undefined` arithmetic downstream.
+- **Initial worker state consistency** — `createInitialWorkerState` now includes `external_service_block: false` in pathology and `approach_history: []`, matching the SKILL.md template contract.
+
+### Changed
+- **Channel-based notifications** — Workers now push real-time events (convergence, pathology, broadcasts) directly to architect session via [Claude Code Channels](https://code.claude.com/docs/en/channels) (fakechat). File-based mailbox system removed entirely.
+- **`status --watch` role clarified** — `status --watch` retains macOS/Slack/Discord notifications for convergence and pathology events (user-facing). Fakechat notifications are worker-owned (pushed directly via curl), preventing duplication. Default polling interval changed from 5s to 30s.
+- **`fakechat_channel` config removed** — Replaced by `fakechat_port` (optional). Workers use `$FAKECHAT_PORT` env var (written to `.env` by `ralph team`).
+
+### Removed
+- **Mailbox system** — `src/core/mailbox.ts`, `ralph status --messages` CLI command, and all mailbox file I/O. Workers communicate via fakechat channel push instead.
+- **`notify()` fakechat posting** — `notify()` no longer posts to fakechat (workers do this directly via curl). Retains macOS, Slack, and Discord webhook support.
+
+### Added
+- `fakechat_port` config option (`~/.ralph/config.json` → `notifications.fakechat_port`) for non-standard port. Falls back to `FAKECHAT_PORT` env var, then `8787`.
+- `getFakechatPort()` exported from `notify.ts` for consistent port resolution across the codebase.
+- `/ralph-kage-bunshin-loop` — workers now `curl POST localhost:8787/upload` on convergence and critical discoveries instead of writing mailbox files.
+- `external_service_block` pathology type added to `WorkerState` type — matches SKILL.md contract for ExternalServiceBlock detection.
+- Security hardening across all skill files — credential safety for state.json, indirect prompt injection mitigation for agent-browser captures, external response handling for curl, `RALPH_AUTO_PUSH` gate for autonomous push/PR operations.
+- Dead code removed — `src/core/worktree.ts` (3 exported functions never imported anywhere).
+- Config validation — 24-hour upper bound enforced for `leaseDurationMs` and `stuckThresholdMs`.
+- `--watch` interval validation — rejects floats (`Number.isInteger`), not just NaN.
+- **Bidirectional fakechat channels** — Every worker now launches with its own fakechat channel (`--channels plugin:fakechat`, port 8788+N). When a task converges, the worker broadcasts `[WAKE]` signals to all other workers' fakechat ports, enabling instant dependency wake-up without `ralph recover`. Workers enter wait mode instead of exiting when no claimable tasks exist. See `docs/ADR-001-bidirectional-channels.md` for design rationale.
+- `WorkerState.fakechat_port` — records each worker's fakechat port in state.json so other participants can discover and POST to it.
+- `/ralph-kage-bunshin-loop` — wait mode: workers stay alive when blocked on dependencies, wake up instantly via fakechat signal. Convergence step now broadcasts to all peer workers. All architect-directed notifications use hardcoded port 8787 (not `$FAKECHAT_PORT` which is now the worker's own port).
+
+### Fixed
+- **Orphaned worker pane accumulation** — `ralph recover` previously failed to detect and recycle orphaned worker panes (Claude still running but task reset to pending by expire/stuck detection). This caused pane count to grow with each recovery cycle (e.g. 4 → 6 → 8 panes) while orphaned workers continued working on tasks they no longer owned, leading to race conditions. Recovery now detects orphaned panes by comparing pane titles against active task assignments, terminates them (`Ctrl+C` → `exit`), and recycles the pane for the new worker.
+- **Elapsed time drift** — `ralph status` and `ralph report` computed elapsed time from `state.started_at`, which was reset whenever `initWorkerState` was called (recovery, worker restart). Elapsed now uses `task.claimed_at` from tasks.json as primary source (immutable after claim), falling back to `state.started_at` only if `claimed_at` is unavailable.
+- **initWorkerState overwrites started_at on recovery** — added `preserveStartedAt` option to `initWorkerState()`. Recovery now passes `{ preserveStartedAt: true }` to retain the original timestamp when recycling a worker.
+- **Stale pane indices after kill** — tmux renumbers pane indices after `kill-pane`, but idle pane indices were stored before kills, causing launches on non-existent panes. Idle panes are now re-scanned by command detection after all kills complete.
+- **`recover.ts` orphaned worker termination** — failed `exit` command now logs warning instead of silently failing; `FAKECHAT_PORT` written to `.env` on recovery (same as `team.ts`).
+
+### Changed
+- `recover.ts` — pane recycling rewritten as 3-phase process: (1) terminate orphaned workers via `sendRawKeys` + `sendKeys`, (2) kill terminated panes in reverse index order to prevent index shifting, (3) split fresh panes and launch new workers. Explicit `paneToWorkerId` mapping replaces fragile `findIndex` lookup.
+
 ## [0.1.7] - 2026-03-21
 
 ### Fixed

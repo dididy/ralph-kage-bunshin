@@ -28,12 +28,15 @@ export interface WorkerState {
     stagnation: boolean
     oscillation: boolean
     wonder_loop: boolean
+    external_service_block?: boolean
   }
   dod_checklist: {
     npm_test: boolean
     npm_build: boolean
     tasks_complete: boolean
   }
+  approach_history?: { approach: string; error: string; tried_at: string }[]
+  fakechat_port?: number
   converged: boolean
   started_at: string
   updated_at: string
@@ -51,6 +54,7 @@ export interface RalphConfig {
     macos: boolean
     slack_webhook: string
     discord_webhook: string
+    fakechat_port?: string
   }
   caffeinate: boolean
   leaseDurationMs?: number

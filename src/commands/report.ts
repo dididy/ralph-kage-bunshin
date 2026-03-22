@@ -56,7 +56,9 @@ export function getReport(projectDir: string): Report {
       }
     }
 
-    const startTime = new Date(ws.started_at).getTime()
+    // Use claimed_at from task (most reliable), fall back to state.started_at
+    const claimedAt = task.claimed_at ? new Date(task.claimed_at).getTime() : NaN
+    const startTime = !isNaN(claimedAt) ? claimedAt : new Date(ws.started_at).getTime()
     const elapsed = isNaN(startTime) ? 0 : Math.floor((Date.now() - startTime) / 60000)
 
     return {

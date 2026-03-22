@@ -26,10 +26,12 @@
 | Feature | Description |
 |---------|-------------|
 | **Parallel workers** | N workers claim tasks independently in tmux panes |
+| **Fair task claiming** | Worker-ID offset distribution — no collision cascades when multiple workers claim simultaneously |
 | **Task dependencies** | `depends_on` ensures correct ordering — workers wait automatically |
 | **Agent pipeline** | Worker → Debugger (on failure) → Verify → Architect review |
 | **Pathology detection** | Detects stuck patterns (stagnation, oscillation, etc.) and exits cleanly |
-| **Auto-recovery** | `--watch` detects crashed workers and spawns replacements |
+| **Auto-recovery** | `--watch` detects crashed workers, recycles orphaned panes, and spawns replacements in-place |
+| **Clean state** | `ralph team N` cleans up stale worker directories from previous runs |
 | **Lease system** | 30-min leases prevent abandoned tasks from blocking progress |
 | **Git worktrees** | `isolated: true` tasks run in dedicated branches, no file conflicts |
 | **Report** | Per-worker summary with task, generations, time, and token cost |
@@ -45,6 +47,10 @@ npx skills add dididy/ralph-kage-bunshin -gy
 npx skills add dididy/e2e-skills -gy
 npx skills add dididy/ui-skills -gy
 ```
+Inside Claude Code, install the fakechat plugin:
+```
+/plugin install fakechat@claude-plugins-official
+```
 
 Requires: **Node.js 18+**, **tmux**, **[Claude Code](https://claude.ai/code)**
 
@@ -57,35 +63,36 @@ Inside Claude Code:
 /ralph-kage-bunshin-start
 ```
 
-**3. Launch & monitor**
+**3. Launch**
 ```bash
 ralph team 3
-ralph status --watch
 ```
+
+> `ralph team` automatically spawns an architect pane and a status pane (`ralph status --watch`) alongside the workers.
 
 ---
 
 ## How It Works
 
 1. **Setup** — `/ralph-kage-bunshin-start` interviews you, then generates `SPEC.md`, `tasks.json`, `CLAUDE.md`
-2. **Spawn** — `ralph team N` opens N tmux panes, each running a Claude worker
+2. **Spawn** — `ralph team N` opens N worker panes + 1 architect pane + 1 status pane in tmux
 3. **Work** — Each worker claims a task → writes tests → implements → refactors
-4. **Converge** — Tests pass → verify acceptance criteria → architect review → mark `converged`
-5. **Recover** — `--watch` auto-detects stuck/crashed workers and respawns
+4. **Converge** — Tests pass → verify acceptance criteria → architect review → mark `converged` → wake up waiting workers
+5. **Wait & Wake** — Workers waiting for dependencies stay alive; when a task converges, wake signals are sent instantly via fakechat
+6. **Recover** — `--watch` auto-detects stuck/crashed workers and respawns (dependency waits no longer need recovery)
 
-Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation. Workers detect their own stuck patterns and exit cleanly. A file-based mailbox shares learnings between workers.
+Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation. All communication uses **bidirectional fakechat channels**: workers push notifications to the architect (port 8787), and converging workers wake blocked peers by posting to their fakechat ports (8788, 8789, ...). The architect pane is spawned automatically by `ralph team`.
 
 ---
 
 ## Commands
 
 ```
-ralph team <n>              Spawn N tmux workers
+ralph team <n>              Spawn N workers + architect + status
 ralph recover               Reset expired leases, relaunch workers
 ralph status                Show worker state
-ralph status --watch [N]    Live dashboard (refresh every N sec, default 5)
+ralph status --watch [N]    Live dashboard (refresh every N sec, default 30)
 ralph status --no-recover   Watch without auto-recovery
-ralph status --messages     Show mailbox messages
 ralph report                Per-worker summary with cost
 
 ralph secrets set KEY=val   Store a secret in .ralph/.env
@@ -122,7 +129,6 @@ Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`ev
   SPEC.md           What to build
   tasks.json        Task list with status, leases, dependencies
   .env              Secrets (gitignored, mode 0600)
-  mailbox/          Worker-to-worker messages
   workers/
     worker-N/
       state.json    Generation, pathology flags, cost

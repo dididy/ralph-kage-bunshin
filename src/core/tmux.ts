@@ -60,6 +60,27 @@ export function listPanes(session: string): number[] {
   }
 }
 
+/**
+ * Synchronous sleep using the system sleep command.
+ */
+export function sleepSync(seconds: number): void {
+  try {
+    execFileSync('sleep', [String(seconds)], { stdio: 'pipe' })
+  } catch { /* ignore */ }
+}
+
+/**
+ * Send raw key sequences (e.g. 'C-c') without appending Enter.
+ * Use for control characters that should not be followed by a newline.
+ */
+export function sendRawKeys(session: string, pane: number, ...keys: string[]): void {
+  try {
+    exec(['send-keys', '-t', `${session}.${pane}`, ...keys])
+  } catch {
+    // best-effort — pane may be unresponsive
+  }
+}
+
 export function killPane(session: string, pane: number): void {
   try {
     exec(['kill-pane', '-t', `${session}.${pane}`])
@@ -160,6 +181,17 @@ export function findStatusPane(session: string): number | null {
   for (const paneIdx of panes) {
     const cmd = cmds.get(paneIdx) ?? ''
     if (cmd === 'node' || cmd === 'watch') return paneIdx
+  }
+  return null
+}
+
+/**
+ * Find the architect pane by title ('ralph-architect').
+ */
+export function findArchitectPane(session: string): number | null {
+  const titles = getPaneTitles(session)
+  for (const [paneIdx, title] of titles) {
+    if (title === 'ralph-architect') return paneIdx
   }
   return null
 }

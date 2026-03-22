@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getStatus, printStatus, printMessages } from '../../src/commands/status'
+import { getStatus, printStatus } from '../../src/commands/status'
 import * as state from '../../src/core/state'
-import * as mailboxModule from '../../src/core/mailbox'
-import * as notifyModule from '../../src/core/notify'
-import * as configModule from '../../src/core/config'
 import * as recoverModule from '../../src/commands/recover'
+import * as configModule from '../../src/core/config'
+import * as notifyModule from '../../src/core/notify'
 
 vi.mock('../../src/core/state')
-vi.mock('../../src/core/notify')
-vi.mock('../../src/core/config')
-vi.mock('../../src/core/mailbox')
 vi.mock('../../src/commands/recover')
+vi.mock('../../src/core/config')
+vi.mock('../../src/core/notify')
 
 function makeWorkerState(overrides: Partial<import('../../src/types').WorkerState> = {}): import('../../src/types').WorkerState {
   return {
@@ -30,8 +28,6 @@ describe('ralph status', () => {
     vi.resetAllMocks()
     vi.mocked(state.resetExpiredLeases).mockReturnValue([])
     vi.mocked(state.resetStuckTasks).mockReturnValue([])
-    vi.mocked(mailboxModule.countUnread).mockReturnValue(0)
-    vi.mocked(mailboxModule.pruneMailbox).mockReturnValue(undefined)
     vi.mocked(recoverModule.runRecover).mockReturnValue(undefined)
     vi.mocked(configModule.loadConfig).mockReturnValue({
       notifications: { macos: false, slack_webhook: '', discord_webhook: '' },
@@ -88,6 +84,18 @@ describe('ralph status', () => {
     expect(status.workers[0].pathologyType).toBe('WonderLoop')
   })
 
+  it('detects external_service_block pathology', () => {
+    vi.mocked(state.readTasks).mockReturnValue([
+      { id: 1, name: 'test-task', status: 'in-progress', worker: 1 },
+    ])
+    vi.mocked(state.readWorkerState).mockReturnValue(makeWorkerState({
+      pathology: { stagnation: false, oscillation: false, wonder_loop: false, external_service_block: true },
+    }))
+    const status = getStatus('/tmp/test')
+    expect(status.workers[0].hasPathology).toBe(true)
+    expect(status.workers[0].pathologyType).toBe('ExternalServiceBlock')
+  })
+
   it('detects converged worker', () => {
     vi.mocked(state.readTasks).mockReturnValue([
       { id: 1, name: 'done-task', status: 'converged', worker: 1 },
@@ -127,63 +135,6 @@ describe('ralph status', () => {
     vi.mocked(state.readTasks).mockReturnValue([])
     const status = getStatus('/tmp/test')
     expect(status.maxElapsedMinutes).toBe(0)
-  })
-
-  it('notifies on CONVERGED', () => {
-    vi.mocked(configModule.loadConfig).mockReturnValue({
-      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
-      caffeinate: true,
-    })
-    vi.mocked(state.readTasks).mockReturnValue([
-      { id: 1, name: 'done-task', status: 'converged', worker: 1 },
-    ])
-    vi.mocked(state.readWorkerState).mockReturnValue(makeWorkerState({
-      converged: true,
-      dod_checklist: { npm_test: true, npm_build: true, tasks_complete: true },
-    }))
-    printStatus('/tmp/test')
-    expect(notifyModule.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('CONVERGED') })
-    )
-  })
-
-  it('notifies on PATHOLOGY', () => {
-    vi.mocked(configModule.loadConfig).mockReturnValue({
-      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
-      caffeinate: true,
-    })
-    vi.mocked(state.readTasks).mockReturnValue([
-      { id: 1, name: 'stuck', status: 'in-progress', worker: 1 },
-    ])
-    vi.mocked(state.readWorkerState).mockReturnValue(makeWorkerState({
-      pathology: { stagnation: true, oscillation: false, wonder_loop: false },
-    }))
-    printStatus('/tmp/test')
-    expect(notifyModule.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('PATHOLOGY') })
-    )
-  })
-
-  it('does not notify twice for the same converged worker in watch mode', () => {
-    vi.mocked(configModule.loadConfig).mockReturnValue({
-      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
-      caffeinate: true,
-    })
-    vi.mocked(state.readTasks).mockReturnValue([
-      { id: 1, name: 'done-task', status: 'converged', worker: 1 },
-    ])
-    vi.mocked(state.readWorkerState).mockReturnValue(makeWorkerState({
-      converged: true,
-      dod_checklist: { npm_test: true, npm_build: true, tasks_complete: true },
-    }))
-    const notifiedConverged = new Set<number>()
-    const notifiedPathology = new Set<number>()
-    printStatus('/tmp/test', notifiedConverged, notifiedPathology)
-    printStatus('/tmp/test', notifiedConverged, notifiedPathology)
-    const calls = vi.mocked(notifyModule.notify).mock.calls.filter(c =>
-      (c[0].message as string).includes('CONVERGED')
-    )
-    expect(calls).toHaveLength(1)
   })
 
   it('shows architectStatus=pending when DoD all true but no review', () => {
@@ -256,36 +207,6 @@ describe('ralph status', () => {
     vi.mocked(state.readTasks).mockReturnValue([])
     printStatus('/tmp/test', new Set(), new Set(), false)
     expect(recoverModule.runRecover).not.toHaveBeenCalled()
-  })
-
-  it('autoRecover=true prunes mailbox', () => {
-    vi.mocked(state.readTasks).mockReturnValue([])
-    printStatus('/tmp/test', new Set(), new Set(), true)
-    expect(mailboxModule.pruneMailbox).toHaveBeenCalledWith('/tmp/test')
-  })
-
-  it('autoRecover=false does not prune mailbox', () => {
-    vi.mocked(state.readTasks).mockReturnValue([])
-    printStatus('/tmp/test', new Set(), new Set(), false)
-    expect(mailboxModule.pruneMailbox).not.toHaveBeenCalled()
-  })
-
-  it('shows unread message count', () => {
-    vi.mocked(mailboxModule.countUnread).mockReturnValue(3)
-    vi.mocked(state.readTasks).mockReturnValue([])
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    printStatus('/tmp/test')
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('3 unread messages'))
-    spy.mockRestore()
-  })
-
-  it('shows singular "message" for 1 unread', () => {
-    vi.mocked(mailboxModule.countUnread).mockReturnValue(1)
-    vi.mocked(state.readTasks).mockReturnValue([])
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    printStatus('/tmp/test')
-    expect(spy).toHaveBeenCalledWith(expect.stringMatching(/1 unread message[^s]/))
-    spy.mockRestore()
   })
 
   it('passes sessionName to runRecover', () => {
@@ -367,59 +288,6 @@ describe('ralph status', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     printStatus('/tmp/test')
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('Elapsed:'))
-    spy.mockRestore()
-  })
-})
-
-describe('printMessages', () => {
-  beforeEach(() => {
-    vi.resetAllMocks()
-  })
-
-  it('prints "No messages" when mailbox is empty', () => {
-    vi.mocked(mailboxModule.listMessages).mockReturnValue([])
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    printMessages('/tmp/test')
-    expect(spy).toHaveBeenCalledWith('No messages in mailbox.')
-    spy.mockRestore()
-  })
-
-  it('prints messages with read/unread status', () => {
-    vi.mocked(mailboxModule.listMessages).mockReturnValue([
-      { from: 1, to: 'all', type: 'info', subject: 'broadcast', body: 'hello', timestamp: '2026-03-21T00:00:00.000Z', filename: 'msg1.json', read: false },
-      { from: 2, to: 1, type: 'decision', subject: 'decision-msg', body: '', timestamp: '2026-03-21T01:00:00.000Z', filename: 'msg2.json.read', read: true },
-    ])
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    printMessages('/tmp/test')
-    const output = spy.mock.calls.map(c => c[0]).join('\n')
-    expect(output).toContain('[unread]')
-    expect(output).toContain('[read]')
-    expect(output).toContain('broadcast')
-    expect(output).toContain('worker-1 → all')
-    expect(output).toContain('worker-2 → worker-1')
-    expect(output).toContain('hello') // body
-    spy.mockRestore()
-  })
-
-  it('prints singular "message" for 1 message', () => {
-    vi.mocked(mailboxModule.listMessages).mockReturnValue([
-      { from: 1, to: 'all', type: 'info', subject: 'test', body: '', timestamp: '2026-03-21T00:00:00.000Z', filename: 'msg1.json', read: false },
-    ])
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    printMessages('/tmp/test')
-    expect(spy).toHaveBeenCalledWith(expect.stringMatching(/1 message[^s]/))
-    spy.mockRestore()
-  })
-
-  it('skips body line when body is empty', () => {
-    vi.mocked(mailboxModule.listMessages).mockReturnValue([
-      { from: 1, to: 'all', type: 'info', subject: 'no-body', body: '', timestamp: '2026-03-21T00:00:00.000Z', filename: 'msg1.json', read: false },
-    ])
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    printMessages('/tmp/test')
-    // Body line should not be present (3 log calls: header, status line, timestamp, empty line)
-    const bodyLines = spy.mock.calls.filter(c => typeof c[0] === 'string' && c[0].includes('         ') && !c[0].includes('2026'))
-    expect(bodyLines).toHaveLength(0)
     spy.mockRestore()
   })
 })

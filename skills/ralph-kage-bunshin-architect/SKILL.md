@@ -28,6 +28,12 @@ Provide:
 5. `.ralph/workers/worker-N/PROGRESS.md` — what was built
 6. Check `state.json` for a `debug_session` field — if it exists with `"confidence": "low"`, reject immediately with: "Unresolved low-confidence debug session. Worker must confirm the root cause before convergence."
 
+**Credential safety when reading state.json:**
+- state.json may contain sensitive data (API keys, tokens, credentials) alongside operational fields, especially if the worker stored debug context or environment details.
+- When reading state.json, only extract the fields you need: `worker_id`, `task`, `generation`, `pathology`, `dod_checklist`, `converged`, `architect_review`, `debug_session`, `cost`.
+- **Never echo or quote raw state.json content in your response.** If you need to reference a field value, describe it abstractly (e.g., "the debug_session has low confidence") — do not copy the literal value.
+- When writing state.json back, use a read-modify-write pattern that only touches the fields you need to change (`converged`, `architect_review`). Preserve all other fields exactly as-is without reading their values into your response.
+
 **Before reviewing anything else:**
 
 **These pre-checks are BLOCKING — if either triggers, STOP. Do not read source code, do not review tests. The rejection is immediate.**
@@ -100,7 +106,7 @@ All requirements are met. No scope violations. Tests are meaningful.
 
 Do these two writes in order:
 
-**Step 1** — Read `.ralph/workers/worker-N/state.json`, write it back with `architect_review` replaced (overwrite any existing value — your judgment is final) and `converged` set to `true` (do NOT overwrite the entire file — preserve all other fields):
+**Step 1** — Read `.ralph/workers/worker-N/state.json`, then write it back with ONLY these fields changed: set `architect_review` (overwrite any existing value — your judgment is final) and set `converged` to `true`. Preserve all other fields as-is. Do not log or echo the full file content — it may contain sensitive data:
 ```json
 "converged": true,
 "architect_review": {
@@ -120,7 +126,7 @@ Tell the worker: **ARCHITECT APPROVED — task is now converged. Claim your next
 ### ❌ REJECTED
 One or more requirements not met, or scope violations found.
 
-Read the existing `.ralph/workers/worker-N/state.json`, then write it back with `architect_review` replaced (overwrite any existing value) and `converged` reset to `false` (preserve all other fields):
+Read `.ralph/workers/worker-N/state.json`, then write it back with ONLY these fields changed: set `architect_review` (overwrite any existing value) and reset `converged` to `false`. Preserve all other fields as-is. Do not log or echo the full file content:
 ```json
 "converged": false,
 "architect_review": {
