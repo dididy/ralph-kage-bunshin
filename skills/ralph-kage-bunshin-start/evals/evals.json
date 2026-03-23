@@ -356,7 +356,7 @@
     "setup": "Files written after approval",
     "assertions": [
       "Output contains 'tmux attach -t ralph-' instruction",
-      "Output contains 'ralph status --watch' instruction"
+      "Output contains 'ralph status' instruction"
     ]
   },
   {

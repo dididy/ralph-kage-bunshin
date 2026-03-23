@@ -59,7 +59,7 @@ git worktree add -b feat/worker-N-<task-slug> $RALPH_PROJECT_DIR/.ralph/workers/
   "last_results": [],
   "pathology": { "stagnation": false, "oscillation": false, "wonder_loop": false, "external_service_block": false },
   "approach_history": [],
-  "dod_checklist": { "npm_test": false, "npm_build": false, "tasks_complete": false },
+  "dod_checklist": { "npm_test": false, "npm_build": false, "tasks_complete": false, "visual_regression": false, "skill_artifacts": false },
   "converged": false,
   "started_at": "<ISO timestamp>",
   "updated_at": "<ISO timestamp>"

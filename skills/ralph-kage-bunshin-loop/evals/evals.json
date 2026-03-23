@@ -422,13 +422,12 @@
   },
   {
     "eval_id": 39,
-    "eval_name": "loop-40-fakechat-port-from-env",
+    "eval_name": "loop-40-fakechat-sends-to-watcher",
     "prompt": "[loop starts]",
-    "setup": "FAKECHAT_PORT=8789",
+    "setup": "Worker needs to report status to watcher",
     "assertions": [
-      "Uses $FAKECHAT_PORT for own channel",
-      "Sends [DONE]/[FAIL]/[PATHOLOGY] to watcher via fakechat",
-      "Does NOT hardcode own port"
+      "Sends [DONE]/[FAIL]/[PATHOLOGY] to watcher fakechat :8787",
+      "Uses port 8787 to reach the watcher"
     ]
   },
   {

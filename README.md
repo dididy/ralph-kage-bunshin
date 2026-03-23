@@ -29,15 +29,10 @@
 | **Dynamic scaling** | Only activates worker panes when parallel tasks exist — idle panes = zero tokens |
 | **Fresh sessions** | Every task assignment starts a new Claude session — no context pollution |
 | **Task dependencies** | `depends_on` ensures correct ordering — watcher evaluates the dependency graph |
-| **Agent pipeline** | Watcher → Worker → Debugger (on failure) → Architect review |
-| **Visual regression** | Automated screenshot comparison between reference site and clone via `agent-browser` — blocks convergence on mismatch |
-| **Skill artifacts** | Physical measurement files required to prove `/ui-reverse-engineering` and `/transition-reverse-engineering` were actually invoked |
-| **Pathology detection** | Detects stuck patterns (stagnation, oscillation, etc.) and exits cleanly |
 | **Auto-recovery** | Watcher monitors worker health, resets stuck tasks, and respawns workers |
-| **Clean state** | `ralph team N` cleans up stale worker directories from previous runs |
-| **Lease system** | 30-min leases prevent abandoned tasks from blocking progress |
 | **Git worktrees** | `isolated: true` tasks run in dedicated branches, no file conflicts |
-| **Report** | Per-worker summary with task, generations, time, and token cost |
+| **Pathology detection** | Detects stuck patterns (stagnation, oscillation, etc.) and exits cleanly |
+| **Lease system** | 30-min leases prevent abandoned tasks from blocking progress |
 
 ---
 
@@ -46,9 +41,7 @@
 **1. Install**
 ```bash
 npm install -g ralph-kage-bunshin
-npx skills add dididy/ralph-kage-bunshin -gy
-npx skills add dididy/e2e-skills -gy
-npx skills add dididy/ui-skills -gy
+npx skills add dididy/ralph-kage-bunshin -gy && npx skills add dididy/e2e-skills -gy && npx skills add dididy/ui-skills -gy
 ```
 Inside Claude Code, install the fakechat plugin:
 ```
@@ -79,15 +72,32 @@ ralph team 3
 
 ## How It Works
 
+```mermaid
+flowchart BT
+    subgraph tmux["ralph team N · tmux session"]
+        W1["🔨 Worker Claude 1"]
+        W2["🔨 Worker Claude 2"]
+        WN["🔨 Worker Claude N"]
+
+        W["🔭 Watcher Claude\n💬 fakechat :8787"]
+
+        W1 -- "sends status\n(fakechat)" --> W
+        W2 -- "sends status\n(fakechat)" --> W
+        WN -- "sends status\n(fakechat)" --> W
+
+        W -. "assign tasks\n(tmux send-keys)" .-> W1 & W2 & WN
+    end
+```
+
 1. **Setup** — `/ralph-kage-bunshin-start` interviews you, then generates `SPEC.md`, `tasks.json`, `CLAUDE.md`
 2. **Spawn** — `ralph team N` opens N empty worker panes + 1 watcher Claude pane in tmux
-3. **Assign** — The watcher evaluates the dependency graph and launches Claude sessions on worker panes for claimable tasks
-4. **Work** — Each worker implements its assigned task via TDD → reports `[DONE]` → exits
-5. **Review** — Watcher spawns an architect on the same pane to review → `[APPROVED]` or `[REJECTED]`
-6. **Repeat** — On approval, watcher assigns the next claimable task. On rejection, respawns the worker. On 3+ failures, spawns a debugger.
-7. **Complete** — When all tasks are converged, watcher sends a macOS notification and prints a summary.
+3. **Assign** — The watcher evaluates the dependency graph and launches Claude sessions on worker panes (`tmux send-keys`)
+4. **Work** — Each worker implements its assigned task via TDD → reports `[DONE]` to watcher (`fakechat :8787`)
+5. **Review** — Watcher spawns an architect on the same pane (`tmux send-keys`) → architect reports `[APPROVED]` or `[REJECTED]` (`fakechat :8787`)
+6. **Recover** — On rejection, respawns the worker (`tmux send-keys`). On 3+ failures, spawns a debugger for root-cause diagnosis
+7. **Complete** — When all tasks are converged, watcher sends a macOS notification and prints a summary
 
-Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation. Workers communicate with the watcher via **[Channels](https://code.claude.com/docs/en/channels)** using [fakechat](https://code.claude.com/docs/en/channels#quickstart) (port 8787). Every task assignment, architect review, and debugger invocation starts a fresh Claude session — no context pollution.
+Watcher assigns work via `tmux send-keys`, workers report back via **[Channels](https://code.claude.com/docs/en/channels)** using [fakechat](https://code.claude.com/docs/en/channels#quickstart) (port 8787). Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation.
 
 ---
 
@@ -116,11 +126,11 @@ Seven skills installed via [skills.sh](https://skills.sh) (see Quick Start).
 | Skill | Description |
 |-------|-------------|
 | `ralph-kage-bunshin-start` | Dimension-based interview → SPEC.md + tasks.json (with dependency waves) + CLAUDE.md |
-| `ralph-kage-bunshin-watcher` | Central orchestrator — task assignment, worker lifecycle, architect/debugger spawning, health monitoring |
-| `ralph-kage-bunshin-loop` | Worker execution loop: receive task → TDD → DoD → report result → exit |
+| `ralph-kage-bunshin-watcher` | Central orchestrator — task assignment, worker lifecycle, architect/debugger spawning, health monitoring. Per-worker summary with task, generations, time, and token cost on completion |
+| `ralph-kage-bunshin-loop` | Worker execution loop: receive task → TDD → DoD → report result → exit. Produces skill artifacts (ui-measurements, transition-measurements) when UI tasks require them |
 | `ralph-kage-bunshin-debug` | Root-cause diagnosis on 3+ failures — file:line evidence, ONE fix proposal, read-only |
 | `ralph-kage-bunshin-verify` | Read-only acceptance-criteria validation — PASS/FAIL/INCOMPLETE verdict, no state changes |
-| `ralph-kage-bunshin-architect` | Approval authority — spec compliance, steelman review, reports verdict to watcher |
+| `ralph-kage-bunshin-architect` | Approval authority — spec compliance, steelman review, visual regression via `agent-browser`, reports verdict to watcher |
 | `api-integration-checklist` | Pre-coding API integration check — CORS, auth, rate limits, proxy decision |
 
 Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`evals/trigger-eval.json`) compatible with [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md).

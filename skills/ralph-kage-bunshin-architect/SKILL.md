@@ -93,17 +93,7 @@ Before approving, steelman the rejection:
 
 ### APPROVED
 
-Write to `.ralph/workers/worker-N/state.json` — set `converged: true` and `architect_review`:
-```json
-"converged": true,
-"architect_review": {
-  "status": "approved",
-  "reviewed_at": "<ISO timestamp>",
-  "notes": "<brief reason>"
-}
-```
-
-Report to watcher via fakechat and **exit**:
+Report to watcher via fakechat and **exit** (watcher handles all state updates):
 ```bash
 curl -s -X POST -F "id=architect-approved-$(date +%s)" \
   -F 'text=[APPROVED] {"task_id":<T>,"notes":"<brief reason>"}' \
@@ -112,17 +102,7 @@ curl -s -X POST -F "id=architect-approved-$(date +%s)" \
 
 ### REJECTED
 
-Write to `.ralph/workers/worker-N/state.json` — set `converged: false` and `architect_review`:
-```json
-"converged": false,
-"architect_review": {
-  "status": "rejected",
-  "reviewed_at": "<ISO timestamp>",
-  "notes": "<specific gaps>"
-}
-```
-
-Report to watcher via fakechat and **exit**:
+Report to watcher via fakechat and **exit** (watcher handles all state updates):
 ```bash
 curl -s -X POST -F "id=architect-rejected-$(date +%s)" \
   -F 'text=[REJECTED] {"task_id":<T>,"reasons":["<gap1>","<gap2>"]}' \

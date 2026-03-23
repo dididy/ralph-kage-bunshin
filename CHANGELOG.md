@@ -28,7 +28,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **`ralph team N`** — Spawns N empty shell worker panes + 1 watcher Claude pane (was N worker Claude panes + 1 architect pane). Watcher pane title: `ralph-watcher`.
 - **`/ralph-kage-bunshin-loop`** — Massively simplified. New flow: read `$RALPH_TASK_ID` env var → implement via TDD → DoD Phase 1 → report `[DONE]`/`[FAIL]`/`[PATHOLOGY]` via fakechat → exit. Worker does not write to `tasks.json`.
-- **`/ralph-kage-bunshin-architect`** — No longer includes health monitoring. Reports `[APPROVED]`/`[REJECTED]` to watcher via fakechat then exits. Still writes `architect_review` to `state.json`.
+- **`/ralph-kage-bunshin-architect`** — No longer includes health monitoring. Reports `[APPROVED]`/`[REJECTED]` to watcher via fakechat then exits. Watcher handles all state updates.
 - **`/ralph-kage-bunshin-debug`** — Input changed from worker-provided to environment variables (`$RALPH_WORKER_ID`, `$RALPH_TASK_ID`, `$RALPH_PROJECT_DIR`). Reports `[DIAGNOSIS]` to watcher via fakechat then exits.
 - **`ralph recover`** — Simplified: resets expired/stuck tasks, then either delegates to running watcher session or spawns a fresh watcher + worker pane setup.
 - **`ralph status`** — One-shot display only; removed `--watch` option, notification logic, and lease/stuck reset (watcher handles these).
