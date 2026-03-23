@@ -24,7 +24,6 @@ function isValidConfig(c: unknown): c is RalphConfig {
   if (typeof n.slack_webhook !== 'string') return false
   if (typeof n.discord_webhook !== 'string') return false
   if ('fakechat_port' in n && typeof n.fakechat_port !== 'string') return false
-  if ('leaseDurationMs' in obj && (typeof obj.leaseDurationMs !== 'number' || obj.leaseDurationMs <= 0 || obj.leaseDurationMs > 24 * 60 * 60 * 1000)) return false
   if ('stuckThresholdMs' in obj && (typeof obj.stuckThresholdMs !== 'number' || obj.stuckThresholdMs <= 0 || obj.stuckThresholdMs > 24 * 60 * 60 * 1000)) return false
   return true
 }
@@ -44,11 +43,6 @@ export function loadConfig(): RalphConfig {
   }
 }
 
-export function saveConfig(config: RalphConfig): void {
-  if (!isValidConfig(config)) {
-    throw new Error('Invalid config object')
-  }
-  const dir = path.join(os.homedir(), '.ralph')
-  fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2))
+export function getFakechatPort(config: RalphConfig): string {
+  return config.notifications.fakechat_port ?? process.env.FAKECHAT_PORT ?? '8787'
 }

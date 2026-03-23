@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { loadConfig, saveConfig } from '../../src/core/config'
+import { loadConfig, getFakechatPort } from '../../src/core/config'
 import fs from 'fs'
 
 vi.mock('fs')
@@ -29,16 +29,14 @@ describe('config', () => {
     expect(config.caffeinate).toBe(false)
   })
 
-  it('parses config with optional leaseDurationMs and stuckThresholdMs', () => {
+  it('parses config with optional stuckThresholdMs', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
     vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
       notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
       caffeinate: true,
-      leaseDurationMs: 60000,
       stuckThresholdMs: 300000,
     }))
     const config = loadConfig()
-    expect(config.leaseDurationMs).toBe(60000)
     expect(config.stuckThresholdMs).toBe(300000)
   })
 
@@ -62,20 +60,6 @@ describe('config', () => {
     spy.mockRestore()
   })
 
-  it('returns defaults when leaseDurationMs is not a number', () => {
-    vi.mocked(fs.existsSync).mockReturnValue(true)
-    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
-      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
-      caffeinate: true,
-      leaseDurationMs: 'bad',
-    }))
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const config = loadConfig()
-    expect(config.caffeinate).toBe(true) // defaults
-    expect(config.leaseDurationMs).toBeUndefined()
-    spy.mockRestore()
-  })
-
   it('returns defaults when stuckThresholdMs is not a number', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
     vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
@@ -89,20 +73,6 @@ describe('config', () => {
     spy.mockRestore()
   })
 
-  it('returns defaults when leaseDurationMs is zero or negative', () => {
-    vi.mocked(fs.existsSync).mockReturnValue(true)
-    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
-      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
-      caffeinate: true,
-      leaseDurationMs: 0,
-    }))
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const config = loadConfig()
-    expect(config.caffeinate).toBe(true) // defaults
-    expect(config.leaseDurationMs).toBeUndefined()
-    spy.mockRestore()
-  })
-
   it('returns defaults when stuckThresholdMs is negative', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true)
     vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
@@ -113,19 +83,6 @@ describe('config', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const config = loadConfig()
     expect(config.caffeinate).toBe(true)
-    spy.mockRestore()
-  })
-
-  it('returns defaults when leaseDurationMs exceeds 24 hours', () => {
-    vi.mocked(fs.existsSync).mockReturnValue(true)
-    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
-      notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
-      caffeinate: true,
-      leaseDurationMs: 25 * 60 * 60 * 1000,
-    }))
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const config = loadConfig()
-    expect(config.leaseDurationMs).toBeUndefined()
     spy.mockRestore()
   })
 
@@ -190,18 +147,23 @@ describe('config', () => {
     expect(config.caffeinate).toBe(true)
     spy.mockRestore()
   })
+})
 
-  it('saveConfig writes JSON to ~/.ralph/config.json', () => {
-    vi.mocked(fs.mkdirSync).mockReturnValue(undefined as any)
-    vi.mocked(fs.writeFileSync).mockReturnValue(undefined)
-    saveConfig({ notifications: { macos: false, slack_webhook: '', discord_webhook: '' }, caffeinate: false })
-    expect(fs.writeFileSync).toHaveBeenCalledWith(
-      expect.stringContaining('config.json'),
-      expect.stringContaining('"caffeinate": false')
-    )
+describe('getFakechatPort', () => {
+  const baseConfig = {
+    notifications: { macos: true, slack_webhook: '', discord_webhook: '' },
+    caffeinate: true,
+  }
+
+  it('returns config port when set', () => {
+    const config = { ...baseConfig, notifications: { ...baseConfig.notifications, fakechat_port: '9999' } }
+    expect(getFakechatPort(config)).toBe('9999')
   })
 
-  it('saveConfig throws on invalid config object', () => {
-    expect(() => saveConfig({ invalid: true } as any)).toThrow('Invalid config object')
+  it('returns default 8787 when no config or env', () => {
+    const originalEnv = process.env.FAKECHAT_PORT
+    delete process.env.FAKECHAT_PORT
+    expect(getFakechatPort(baseConfig)).toBe('8787')
+    if (originalEnv) process.env.FAKECHAT_PORT = originalEnv
   })
 })

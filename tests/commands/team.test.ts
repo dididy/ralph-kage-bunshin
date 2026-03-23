@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { runTeam, launchWorkers } from '../../src/commands/team'
+import { runTeam } from '../../src/commands/team'
 import * as tmux from '../../src/core/tmux'
 import * as state from '../../src/core/state'
 import * as caffeinate from '../../src/core/caffeinate'
@@ -19,7 +19,7 @@ describe('ralph team', () => {
     vi.mocked(tmux.splitPane).mockReturnValue(undefined)
     vi.mocked(tmux.applyLayout).mockReturnValue(undefined)
     vi.mocked(tmux.sendKeys).mockReturnValue(undefined)
-    vi.mocked(tmux.listPanes).mockReturnValue([0, 1, 2, 3, 4])
+    vi.mocked(tmux.listPanes).mockReturnValue([0, 1, 2, 3])
     vi.mocked(tmux.setPaneTitle).mockReturnValue(undefined)
     vi.mocked(tmux.killSession).mockReturnValue(undefined)
     vi.mocked(caffeinate.startCaffeinate).mockReturnValue(undefined)
@@ -42,9 +42,10 @@ describe('ralph team', () => {
     expect(tmux.createSession).toHaveBeenCalledWith('ralph-test-project')
   })
 
-  it('splits panes for workers, architect, and status then applies tiled layout', () => {
+  it('splits panes for workers and watcher then applies tiled layout', () => {
     runTeam(3, '/tmp/test-project')
-    expect(tmux.splitPane).toHaveBeenCalledTimes(4)
+    // 3 workers + 1 watcher = 4 panes; session starts with 1, so 3 splits
+    expect(tmux.splitPane).toHaveBeenCalledTimes(3)
     expect(tmux.applyLayout).toHaveBeenCalledWith(expect.any(String), 'tiled')
   })
 
@@ -56,22 +57,18 @@ describe('ralph team', () => {
     expect(allCalls).toContain("export RALPH_WORKER_ID='3'")
   })
 
+  it('does not launch claude on worker panes (watcher does this)', () => {
+    runTeam(3, '/tmp/test-project')
+    // Worker panes are 0, 1, 2 — none should have claude commands
+    const workerCalls = vi.mocked(tmux.sendKeys).mock.calls
+      .filter(c => c[1] !== 3) // exclude watcher pane
+      .map(c => c[2])
+    expect(workerCalls.every(cmd => !cmd.includes('claude'))).toBe(true)
+  })
+
   it('does not pre-assign workers in tasks.json', () => {
     runTeam(3, '/tmp/test-project')
     expect(state.writeTasks).not.toHaveBeenCalled()
-  })
-
-  it('launches claude with session name, channels flag, and /ralph-kage-bunshin-loop in each worker pane', () => {
-    runTeam(3, '/tmp/test-project')
-    const workerClaudeCalls = vi.mocked(tmux.sendKeys).mock.calls
-      .map(c => c[2])
-      .filter(cmd => cmd.includes('claude') && cmd.includes('/ralph-kage-bunshin-loop'))
-    expect(workerClaudeCalls).toHaveLength(3)
-    workerClaudeCalls.forEach(cmd => {
-      expect(cmd).toContain('/ralph-kage-bunshin-loop')
-      expect(cmd).toMatch(/-n ['"]ralph-worker-\d+['"]/)
-      expect(cmd).toContain('--channels plugin:fakechat@claude-plugins-official')
-    })
   })
 
   it('kills and recreates the session when one already exists', () => {
@@ -95,26 +92,28 @@ describe('ralph team', () => {
     expect(() => runTeam(3, '/tmp/test-project')).toThrow('Expected')
   })
 
-  it('sets architect pane title to ralph-architect', () => {
+  it('sets watcher pane title to ralph-watcher', () => {
     runTeam(3, '/tmp/test-project')
-    expect(tmux.setPaneTitle).toHaveBeenCalledWith(expect.any(String), 3, 'ralph-architect')
+    expect(tmux.setPaneTitle).toHaveBeenCalledWith(expect.any(String), 3, 'ralph-watcher')
   })
 
-  it('launches claude with fakechat in architect pane', () => {
+  it('launches claude with fakechat and watcher skill on watcher pane', () => {
     runTeam(3, '/tmp/test-project')
-    const architectCalls = vi.mocked(tmux.sendKeys).mock.calls.filter(c => c[1] === 3)
-    expect(architectCalls.some(c => c[2].includes('claude --channels plugin:fakechat@claude-plugins-official'))).toBe(true)
+    const watcherCalls = vi.mocked(tmux.sendKeys).mock.calls.filter(c => c[1] === 3)
+    expect(watcherCalls.some(c => c[2].includes('claude') && c[2].includes('/ralph-kage-bunshin-watcher'))).toBe(true)
+    expect(watcherCalls.some(c => c[2].includes('--channels plugin:fakechat@claude-plugins-official'))).toBe(true)
   })
 
-  it('sets status pane title to ralph-status', () => {
+  it('exports RALPH_WORKER_COUNT to watcher pane', () => {
     runTeam(3, '/tmp/test-project')
-    expect(tmux.setPaneTitle).toHaveBeenCalledWith(expect.any(String), 4, 'ralph-status')
+    const watcherCalls = vi.mocked(tmux.sendKeys).mock.calls.filter(c => c[1] === 3)
+    expect(watcherCalls.some(c => c[2].includes("RALPH_WORKER_COUNT='3'"))).toBe(true)
   })
 
-  it('sends watch command to status pane', () => {
+  it('exports FAKECHAT_PORT to watcher pane', () => {
     runTeam(3, '/tmp/test-project')
-    const statusCalls = vi.mocked(tmux.sendKeys).mock.calls.filter(c => c[1] === 4)
-    expect(statusCalls.some(c => c[2].includes('ralph status --watch'))).toBe(true)
+    const watcherCalls = vi.mocked(tmux.sendKeys).mock.calls.filter(c => c[1] === 3)
+    expect(watcherCalls.some(c => c[2].includes("FAKECHAT_PORT="))).toBe(true)
   })
 
   it('sources .env when it exists', () => {
@@ -128,21 +127,6 @@ describe('ralph team', () => {
   it('sanitizes project dir name for session', () => {
     runTeam(1, '/tmp/my project!!!')
     expect(tmux.createSession).toHaveBeenCalledWith('ralph-my_project___')
-  })
-
-  it('sets per-worker FAKECHAT_PORT env var (8787 + workerId)', () => {
-    runTeam(3, '/tmp/test-project')
-    const allCalls = vi.mocked(tmux.sendKeys).mock.calls.map(c => c[2])
-    expect(allCalls).toContain("export FAKECHAT_PORT='8788'")
-    expect(allCalls).toContain("export FAKECHAT_PORT='8789'")
-    expect(allCalls).toContain("export FAKECHAT_PORT='8790'")
-  })
-
-  it('passes fakechatPort to initWorkerState for each worker', () => {
-    runTeam(3, '/tmp/test-project')
-    expect(state.initWorkerState).toHaveBeenCalledWith('/tmp/test-project', 1, { fakechatPort: 8788 })
-    expect(state.initWorkerState).toHaveBeenCalledWith('/tmp/test-project', 2, { fakechatPort: 8789 })
-    expect(state.initWorkerState).toHaveBeenCalledWith('/tmp/test-project', 3, { fakechatPort: 8790 })
   })
 
   it('writes FAKECHAT_PORT to .env and enforces chmod 0600', () => {
@@ -194,10 +178,4 @@ describe('ralph team', () => {
     })
   })
 
-  describe('launchWorkers', () => {
-    it('throws when not enough panes for workers', () => {
-      vi.mocked(tmux.listPanes).mockReturnValue([0])
-      expect(() => launchWorkers('session', [1, 2], '/proj')).toThrow('Not enough panes')
-    })
-  })
 })

@@ -20,10 +20,6 @@
     "should_trigger": false
   },
   {
-    "query": "Review the pathology-flagged task from worker 1",
-    "should_trigger": false
-  },
-  {
     "query": "Set up a new ralph project",
     "should_trigger": false
   },

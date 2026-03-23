@@ -1,18 +1,7 @@
 [
   {
     "eval_id": 0,
-    "eval_name": "arch-01-pathology-immediate-reject",
-    "prompt": "Review worker 1's implementation",
-    "setup": "state.json has pathology.stagnation: true",
-    "assertions": [
-      "Checks pathology flags BEFORE reviewing code",
-      "Returns REJECTED with pathology-specific note",
-      "Does NOT review the actual code"
-    ]
-  },
-  {
-    "eval_id": 1,
-    "eval_name": "arch-02-ignores-worker-inline-review",
+    "eval_name": "arch-01-ignores-worker-inline-review",
     "prompt": "Spot-check worker 2",
     "setup": "state.json already has converged:true, architect_review.status:'approved' from worker",
     "assertions": [
@@ -22,8 +11,8 @@
     ]
   },
   {
-    "eval_id": 2,
-    "eval_name": "arch-03-low-confidence-debug-reject",
+    "eval_id": 1,
+    "eval_name": "arch-02-low-confidence-debug-reject",
     "prompt": "Review worker 3",
     "setup": "state.json has debug_session with confidence:'low'",
     "assertions": [
@@ -32,8 +21,8 @@
     ]
   },
   {
-    "eval_id": 3,
-    "eval_name": "arch-04-reads-source-not-just-tests",
+    "eval_id": 2,
+    "eval_name": "arch-03-reads-source-not-just-tests",
     "prompt": "Review worker 1's task",
     "setup": "Tests pass but source has a bug (e.g. missing error path)",
     "assertions": [
@@ -43,8 +32,8 @@
     ]
   },
   {
-    "eval_id": 4,
-    "eval_name": "arch-05-steelman-before-approve",
+    "eval_id": 3,
+    "eval_name": "arch-04-steelman-before-approve",
     "prompt": "Review worker 2",
     "setup": "Clean implementation, all tests pass",
     "assertions": [
@@ -54,8 +43,8 @@
     ]
   },
   {
-    "eval_id": 5,
-    "eval_name": "arch-06-scope-creep-detection",
+    "eval_id": 4,
+    "eval_name": "arch-05-scope-creep-detection",
     "prompt": "Review worker 1",
     "setup": "SPEC says 'todo list', worker added real-time sync",
     "assertions": [
@@ -64,32 +53,30 @@
     ]
   },
   {
-    "eval_id": 6,
-    "eval_name": "arch-07-atomic-state-write",
+    "eval_id": 5,
+    "eval_name": "arch-06-reports-approved-via-fakechat",
     "prompt": "Review and approve worker 3",
     "setup": "Review passes all criteria",
     "assertions": [
-      "Writes converged:true to state.json",
-      "Writes architect_review with status:'approved' and timestamp",
-      "Updates tasks.json status to 'converged'",
-      "Does NOT overwrite other state.json fields"
+      "Sends [APPROVED] message via fakechat to watcher",
+      "Includes worker ID, task ID, and review summary",
+      "Does NOT write to tasks.json or state.json"
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "arch-07-reports-rejected-via-fakechat",
+    "prompt": "Review worker 2",
+    "setup": "Review finds a gap",
+    "assertions": [
+      "Sends [REJECTED] message via fakechat to watcher",
+      "Includes worker ID, task ID, and specific gaps as numbered list",
+      "Does NOT write to tasks.json or state.json"
     ]
   },
   {
     "eval_id": 7,
-    "eval_name": "arch-08-reject-resets-state",
-    "prompt": "Review worker 2",
-    "setup": "Review finds a gap",
-    "assertions": [
-      "Writes converged:false to state.json",
-      "Writes architect_review with status:'rejected' and specific notes",
-      "Resets task status to 'in-progress' in tasks.json",
-      "Provides numbered list of specific gaps"
-    ]
-  },
-  {
-    "eval_id": 8,
-    "eval_name": "arch-09-e2e-missing-ui-task",
+    "eval_name": "arch-08-e2e-missing-ui-task",
     "prompt": "Review worker 1's UI task",
     "setup": "UI task, spec has E2E scenarios, no Playwright tests exist",
     "assertions": [
@@ -98,20 +85,20 @@
     ]
   },
   {
-    "eval_id": 9,
-    "eval_name": "arch-10-no-code-writes",
+    "eval_id": 8,
+    "eval_name": "arch-09-no-code-writes",
     "prompt": "Review worker 2",
     "setup": "Review with minor fixable issue",
     "assertions": [
       "Does NOT edit source files",
       "Does NOT edit test files",
-      "Only writes to state.json and tasks.json",
+      "Only reports via fakechat",
       "Rejection notes tell worker what to fix, not how"
     ]
   },
   {
-    "eval_id": 10,
-    "eval_name": "arch-11-completeness-vs-spec",
+    "eval_id": 9,
+    "eval_name": "arch-10-completeness-vs-spec",
     "prompt": "Review worker 1's implementation",
     "setup": "SPEC.md has 4 done criteria, worker implemented only 3",
     "assertions": [
@@ -121,8 +108,8 @@
     ]
   },
   {
-    "eval_id": 11,
-    "eval_name": "arch-12-completeness-vs-task-description",
+    "eval_id": 10,
+    "eval_name": "arch-11-completeness-vs-task-description",
     "prompt": "Review worker 2's implementation",
     "setup": "tasks.json description lists 3 acceptance criteria, only 2 implemented",
     "assertions": [
@@ -132,8 +119,8 @@
     ]
   },
   {
-    "eval_id": 12,
-    "eval_name": "arch-13-skill-artifact-missing",
+    "eval_id": 11,
+    "eval_name": "arch-12-skill-artifact-missing",
     "prompt": "Review worker 1's UI task",
     "setup": "Task description has '/ui-reverse-engineering', no ui-measurements.json in .ralph/workers/worker-1/",
     "assertions": [
@@ -143,8 +130,8 @@
     ]
   },
   {
-    "eval_id": 13,
-    "eval_name": "arch-14-skill-artifact-empty",
+    "eval_id": 12,
+    "eval_name": "arch-13-skill-artifact-empty",
     "prompt": "Review worker 2's animation task",
     "setup": "Task has '/transition-reverse-engineering', transition-measurements.json exists but contains {} or placeholder",
     "assertions": [
@@ -154,8 +141,8 @@
     ]
   },
   {
-    "eval_id": 14,
-    "eval_name": "arch-15-visual-regression-missing",
+    "eval_id": 13,
+    "eval_name": "arch-14-visual-regression-missing",
     "prompt": "Review worker 1's UI task",
     "setup": "UI task with Reference URL in SPEC.md, no visual-regression.json exists",
     "assertions": [
@@ -165,8 +152,8 @@
     ]
   },
   {
-    "eval_id": 15,
-    "eval_name": "arch-16-visual-regression-failed",
+    "eval_id": 14,
+    "eval_name": "arch-15-visual-regression-failed",
     "prompt": "Review worker 3's UI task",
     "setup": "visual-regression.json exists with overall_verdict:'fail', hero section mismatch documented",
     "assertions": [
@@ -176,8 +163,8 @@
     ]
   },
   {
-    "eval_id": 16,
-    "eval_name": "arch-17-visual-regression-rubber-stamp",
+    "eval_id": 15,
+    "eval_name": "arch-16-visual-regression-rubber-stamp",
     "prompt": "Review worker 2's UI task",
     "setup": "visual-regression.json has overall_verdict:'pass' but per-section verdicts show 2 sections as 'fail'",
     "assertions": [
@@ -187,8 +174,8 @@
     ]
   },
   {
-    "eval_id": 17,
-    "eval_name": "arch-18-visual-regression-agent-browser-unavailable",
+    "eval_id": 16,
+    "eval_name": "arch-17-visual-regression-agent-browser-unavailable",
     "prompt": "Review worker 1's UI task",
     "setup": "PROGRESS.md documents 'agent-browser genuinely unavailable'",
     "assertions": [
@@ -197,8 +184,8 @@
     ]
   },
   {
-    "eval_id": 18,
-    "eval_name": "arch-19-animation-measurement-check",
+    "eval_id": 17,
+    "eval_name": "arch-18-animation-measurement-check",
     "prompt": "Review worker 3's animation task",
     "setup": "Animation task, no transition-measurements.json, worker used hardcoded values",
     "assertions": [
@@ -206,8 +193,8 @@
     ]
   },
   {
-    "eval_id": 19,
-    "eval_name": "arch-20-accepts-implicit-requirements",
+    "eval_id": 18,
+    "eval_name": "arch-19-accepts-implicit-requirements",
     "prompt": "Review worker 2's form task",
     "setup": "Spec says 'form validation', worker added inline error messages",
     "assertions": [
@@ -216,8 +203,8 @@
     ]
   },
   {
-    "eval_id": 20,
-    "eval_name": "arch-21-checks-what-not-section",
+    "eval_id": 19,
+    "eval_name": "arch-20-checks-what-not-section",
     "prompt": "Review worker 1's implementation",
     "setup": "CLAUDE.md says 'What NOT: no real-time sync', worker added WebSocket sync",
     "assertions": [
@@ -225,8 +212,8 @@
     ]
   },
   {
-    "eval_id": 21,
-    "eval_name": "arch-22-no-task-reassignment",
+    "eval_id": 20,
+    "eval_name": "arch-21-no-task-reassignment",
     "prompt": "Review worker 3's task",
     "setup": "Worker's task seems wrong for their skills",
     "assertions": [
@@ -235,23 +222,13 @@
     ]
   },
   {
-    "eval_id": 22,
-    "eval_name": "arch-23-rejection-specificity",
+    "eval_id": 21,
+    "eval_name": "arch-22-rejection-specificity",
     "prompt": "Review worker 2's implementation",
     "setup": "Implementation has vague issue",
     "assertions": [
       "Rejection includes specific file:line references",
       "Does NOT use vague language like 'needs improvement'"
-    ]
-  },
-  {
-    "eval_id": 23,
-    "eval_name": "arch-24-dual-precheck-both-trigger",
-    "prompt": "Review worker 1's implementation",
-    "setup": "state.json has pathology.stagnation:true AND debug_session.confidence:'low'",
-    "assertions": [
-      "REJECTS on the first pre-check (pathology)",
-      "Does NOT proceed to check debug_session"
     ]
   }
 ]

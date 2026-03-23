@@ -1,20 +1,19 @@
 ---
 name: ralph-kage-bunshin-debug
-description: Use when a ralph worker has 3+ consecutive failures and needs diagnosis — reads error output and code to find root cause with file:line evidence, proposes ONE fix (does not implement it), writes debug_session to state.json
+description: Use when a ralph worker has 3+ consecutive failures and needs diagnosis — reads error output and code to find root cause with file:line evidence, proposes ONE fix (does not implement it), writes debug_session to state.json and reports to watcher
 ---
 
 # /ralph-kage-bunshin-debug — Ralph Debugger Skill
 
-You are a Ralph Debugger. A worker called you after 3+ consecutive failures.
+You are a Ralph Debugger. The watcher spawned you after a worker hit 3+ consecutive failures.
 Your job: diagnose the root cause and propose ONE fix. You do NOT implement.
 
 ## Input
 
-The worker provides:
-- Worker ID (N)
-- Project directory
-- Task name
-- Last error output (paste directly)
+Read from environment variables:
+- `$RALPH_WORKER_ID` (N) — the worker whose failure you're diagnosing
+- `$RALPH_TASK_ID` — the task that failed
+- `$RALPH_PROJECT_DIR` — project root
 
 ## What to Read
 
@@ -81,18 +80,15 @@ Write to `.ralph/workers/worker-N/state.json` under `debug_session`:
 }
 ```
 
-Then tell the worker:
+Then report to the watcher via fakechat and **exit**:
 
+```bash
+curl -s -X POST -F "id=debugger-diagnosis-$(date +%s)" \
+  -F 'text=[DIAGNOSIS] {"task_id":<T>,"root_cause":"<one sentence>","proposed_fix":"<what to change>","confidence":"<high/medium/low>"}' \
+  http://127.0.0.1:8787/upload
 ```
-DEBUGGER DIAGNOSIS
-Root cause: [one sentence]
-Evidence: [file:line]
-Proposed fix: [what to change, where]
-Confidence: [high/medium/low]
 
-Reset consecutive_failures to 0 and attempt this fix.
-If this fix also fails after 3 attempts, try a different approach — do not retry the same fix.
-```
+The watcher will forward the diagnosis to the worker and respawn it.
 
 ## Rules
 

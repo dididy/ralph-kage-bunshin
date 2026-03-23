@@ -59,7 +59,6 @@ export interface RalphConfig {
     fakechat_port?: string
   }
   caffeinate: boolean
-  leaseDurationMs?: number
   stuckThresholdMs?: number
 }
 

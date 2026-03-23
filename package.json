@@ -1,7 +1,7 @@
 {
   "name": "ralph-kage-bunshin",
-  "version": "0.1.8",
-  "description": "AI coding harness — you design, agents forge through the night",
+  "version": "0.2.0",
+  "description": "You design, agents forge through the night — watcher-orchestrated parallel Claude Code workers in tmux",
   "author": "Yongjae Lee",
   "license": "Apache-2.0",
   "keywords": [

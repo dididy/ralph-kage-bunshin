@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { readTasks, writeTasks, readWorkerState, writeWorkerState, updateTaskStatus, claimTask, renewLease, resetExpiredLeases, resetStuckTasks, getClaimableTasks, createInitialWorkerState, initWorkerState } from '../../src/core/state'
+import { readTasks, writeTasks, readWorkerState, writeWorkerState, resetExpiredLeases, resetStuckTasks, createInitialWorkerState, initWorkerState } from '../../src/core/state'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -194,97 +194,6 @@ describe('state', () => {
   })
 
   describe('lease', () => {
-    it('claimTask sets claimed_at and lease_expires_at 30 minutes out', () => {
-      const data = { tasks: [{ id: 1, name: 'auth', status: 'pending', worker: null }] }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-
-      const before = new Date()
-      claimTask(tmpDir, 1, 2)
-      const after = new Date()
-
-      const tasks = readTasks(tmpDir)
-      const t = tasks[0]
-      expect(t.status).toBe('in-progress')
-      expect(t.worker).toBe(2)
-      expect(t.claimed_at).toBeDefined()
-      expect(t.lease_expires_at).toBeDefined()
-
-      const claimedAt = new Date(t.claimed_at!)
-      const expiresAt = new Date(t.lease_expires_at!)
-      expect(claimedAt.getTime()).toBeGreaterThanOrEqual(before.getTime())
-      expect(claimedAt.getTime()).toBeLessThanOrEqual(after.getTime())
-      const diff = expiresAt.getTime() - claimedAt.getTime()
-      expect(diff).toBe(30 * 60 * 1000)
-    })
-
-    it('claimTask does not claim non-pending tasks', () => {
-      const data = { tasks: [{ id: 1, name: 'auth', status: 'in-progress', worker: 1 }] }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-      claimTask(tmpDir, 1, 2)
-      const tasks = readTasks(tmpDir)
-      expect(tasks[0].worker).toBe(1) // unchanged
-    })
-
-    it('renewLease updates lease_expires_at to now + 30 minutes', () => {
-      const oldExpiry = new Date(Date.now() + 60 * 1000).toISOString()
-      const data = {
-        tasks: [{
-          id: 1, name: 'auth', status: 'in-progress', worker: 2,
-          claimed_at: new Date().toISOString(),
-          lease_expires_at: oldExpiry,
-        }]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-
-      const before = new Date()
-      renewLease(tmpDir, 1, 2)
-      const after = new Date()
-
-      const tasks = readTasks(tmpDir)
-      const t = tasks[0]
-      const newExpiry = new Date(t.lease_expires_at!)
-      const diff = newExpiry.getTime() - before.getTime()
-      expect(diff).toBeGreaterThanOrEqual(30 * 60 * 1000)
-      expect(diff).toBeLessThanOrEqual(30 * 60 * 1000 + (after.getTime() - before.getTime()) + 1000)
-    })
-
-    it('renewLease does not renew for different worker', () => {
-      const data = {
-        tasks: [{
-          id: 1, name: 'auth', status: 'in-progress', worker: 2,
-          claimed_at: new Date().toISOString(),
-          lease_expires_at: new Date(Date.now() + 60000).toISOString(),
-        }]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-
-      const oldExpiry = readTasks(tmpDir)[0].lease_expires_at
-      renewLease(tmpDir, 1, 999) // wrong worker
-      const newExpiry = readTasks(tmpDir)[0].lease_expires_at
-      expect(newExpiry).toBe(oldExpiry)
-    })
-
-    it('renewLease does not renew for non-in-progress task', () => {
-      const data = {
-        tasks: [{
-          id: 1, name: 'done', status: 'converged', worker: 2,
-          claimed_at: new Date().toISOString(),
-          lease_expires_at: new Date(Date.now() + 60000).toISOString(),
-        }]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-
-      const oldExpiry = readTasks(tmpDir)[0].lease_expires_at
-      renewLease(tmpDir, 1, 2) // correct worker but wrong status
-      const newExpiry = readTasks(tmpDir)[0].lease_expires_at
-      expect(newExpiry).toBe(oldExpiry)
-    })
-
     it('resetExpiredLeases resets expired tasks to pending and returns their ids', () => {
       const expired = new Date(Date.now() - 1000).toISOString()
       const valid = new Date(Date.now() + 5 * 60 * 1000).toISOString()
@@ -385,89 +294,6 @@ describe('state', () => {
     })
   })
 
-  describe('depends_on', () => {
-    it('getClaimableTasks returns pending tasks with no depends_on', () => {
-      const data = {
-        tasks: [
-          { id: 1, name: 'setup', status: 'pending', worker: null },
-          { id: 2, name: 'auth', status: 'pending', worker: null, depends_on: [1] },
-        ]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-      const claimable = getClaimableTasks(tmpDir)
-      expect(claimable).toHaveLength(1)
-      expect(claimable[0].id).toBe(1)
-    })
-
-    it('getClaimableTasks includes tasks whose depends_on are all converged', () => {
-      const data = {
-        tasks: [
-          { id: 1, name: 'setup', status: 'converged', worker: 1 },
-          { id: 2, name: 'auth', status: 'pending', worker: null, depends_on: [1] },
-        ]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-      const claimable = getClaimableTasks(tmpDir)
-      expect(claimable).toHaveLength(1)
-      expect(claimable[0].id).toBe(2)
-    })
-
-    it('getClaimableTasks returns tasks with empty depends_on', () => {
-      const data = {
-        tasks: [{ id: 1, name: 'setup', status: 'pending', worker: null, depends_on: [] }]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-      expect(getClaimableTasks(tmpDir)).toHaveLength(1)
-    })
-
-    it('claimTask blocks claiming when depends_on tasks are not yet converged', () => {
-      const data = {
-        tasks: [
-          { id: 1, name: 'setup', status: 'in-progress', worker: 1 },
-          { id: 2, name: 'auth', status: 'pending', worker: null, depends_on: [1] },
-        ]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-      claimTask(tmpDir, 2, 3)
-      const tasks = readTasks(tmpDir)
-      expect(tasks[1].status).toBe('pending')
-      expect(tasks[1].worker).toBeNull()
-    })
-
-    it('warns when depends_on references non-existent task id', () => {
-      const data = {
-        tasks: [
-          { id: 1, name: 'setup', status: 'pending', worker: null, depends_on: [999] },
-        ]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-      const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      getClaimableTasks(tmpDir)
-      expect(spy).toHaveBeenCalledWith(expect.stringContaining('depends_on unknown task id 999'))
-      spy.mockRestore()
-    })
-
-    it('claimTask succeeds when all depends_on tasks are converged', () => {
-      const data = {
-        tasks: [
-          { id: 1, name: 'setup', status: 'converged', worker: 1 },
-          { id: 2, name: 'auth', status: 'pending', worker: null, depends_on: [1] },
-        ]
-      }
-      fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-      fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-      claimTask(tmpDir, 2, 3)
-      const tasks = readTasks(tmpDir)
-      expect(tasks[1].status).toBe('in-progress')
-      expect(tasks[1].worker).toBe(3)
-    })
-  })
-
   it('writeTasks produces a valid file readable by readTasks (atomic write roundtrip)', () => {
     const tasks = [
       { id: 1, name: 'a', status: 'pending' as const, worker: null },
@@ -503,18 +329,4 @@ describe('state', () => {
     expect(files.filter(f => f.startsWith('.tmp'))).toHaveLength(0)
   })
 
-  it('updateTaskStatus changes only the target task status', () => {
-    const data = {
-      tasks: [
-        { id: 1, name: 'task-1', status: 'pending', worker: 1 },
-        { id: 2, name: 'task-2', status: 'pending', worker: 2 },
-      ]
-    }
-    fs.mkdirSync(path.join(tmpDir, '.ralph'), { recursive: true })
-    fs.writeFileSync(path.join(tmpDir, '.ralph', 'tasks.json'), JSON.stringify(data))
-    updateTaskStatus(tmpDir, 1, 'in-progress')
-    const tasks = readTasks(tmpDir)
-    expect(tasks[0].status).toBe('in-progress')
-    expect(tasks[1].status).toBe('pending')
-  })
 })

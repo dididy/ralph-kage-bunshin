@@ -1,13 +1,14 @@
 {
   "name": "ralph-kage-bunshin",
-  "version": "0.1.8",
-  "description": "Six skills for orchestrating parallel Claude Code workers: project setup interview, TDD worker loop with inline verify + architect review, debugger for root-cause diagnosis, standalone verifier and architect tools, and an API integration checklist for external service CORS/proxy decisions.",
+  "version": "0.2.0",
+  "description": "You design, agents forge through the night — 7 skills for watcher-orchestrated parallel Claude Code workers: central orchestrator assigns tasks, workers implement via TDD, architect reviews code, debugger diagnoses failures, all autonomously in tmux.",
   "license": "Apache-2.0",
   "author": {
     "name": "Yongjae Lee"
   },
   "skills": [
     "./skills/ralph-kage-bunshin-start",
+    "./skills/ralph-kage-bunshin-watcher",
     "./skills/ralph-kage-bunshin-loop",
     "./skills/ralph-kage-bunshin-debug",
     "./skills/ralph-kage-bunshin-verify",

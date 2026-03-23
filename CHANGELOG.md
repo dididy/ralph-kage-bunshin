@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-03-23
+
+### Added
+- **Watcher-centric architecture** — `ralph team N` now spawns a central watcher Claude session that orchestrates all task assignment, worker lifecycle, architect/debugger spawning, and health monitoring. Replaces the decentralized worker-driven model where workers independently claimed tasks.
+- **`/ralph-kage-bunshin-watcher` skill** — Central orchestrator: reads dependency graph, assigns tasks to worker panes via `sendKeys`, handles `[DONE]`/`[FAIL]`/`[PATHOLOGY]`/`[APPROVED]`/`[REJECTED]`/`[DIAGNOSIS]` messages, performs 60-second health checks, and detects completion.
+- **Dynamic worker scaling** — Only activates worker panes when parallel tasks are available. Setup task uses 1 worker; wave 2 with 3 tasks activates 3 workers. Idle panes = empty shell = zero tokens.
+- **Fresh Claude sessions** — Every task assignment, architect review, and debugger invocation starts a new Claude session on the target pane. No context pollution between tasks.
+- **`prepareWorkerPanes()`** — New function in `team.ts` that sets up worker pane environment variables without launching Claude. The watcher launches Claude sessions on-demand.
+
+### Removed
+- **`ralph status --watch`** — Watcher handles all monitoring; `ralph status` is now a one-shot status display.
+- **Worker task claiming** — Workers no longer read/write `tasks.json`. The watcher is the sole writer.
+- **Worker lease renewal** — Watcher manages leases; workers don't renew.
+- **Worker dependency checking** — Watcher evaluates the dependency graph and only assigns claimable tasks.
+- **Inline architect review (Phase 2)** — Workers report `[DONE]` and exit; watcher spawns a separate architect session.
+- **Worker wake signals** — Workers no longer broadcast `[WAKE]` to peers; watcher handles task flow.
+- **Complex pane recycling in recover** — Simplified to delegate to running watcher or spawn a fresh watcher session.
+- **Notification logic from `printStatus`** — Watcher sends notifications directly.
+- **`notify.ts`** — Merged `getFakechatPort()` into `config.ts`; removed `notify()`, `postWebhook()`, `isValidHttpsUrl()` (watcher handles notifications directly).
+- **Dead worker-claiming code** — Removed `claimTask()`, `renewLease()`, `getClaimableTasks()`, `warnMissingDependencies()`, `LEASE_DURATION_MS` from `state.ts`. Removed `launchWorkers()`, `launchWorkersOnPanes()`, `WORKER_FAKECHAT_BASE_PORT`, `getWorkerFakechatPort()` from `team.ts`.
+- **Dead utilities** — Removed `sleepSync()`, `sendRawKeys()`, `findWatcherPane()` from `tmux.ts`; `saveConfig()` from `config.ts`; `stopCaffeinate()` from `caffeinate.ts`; `updateTaskStatus()` from `state.ts`.
+- **`leaseDurationMs` config field** — Removed from `RalphConfig` type and config validation (was only used by removed `claimTask`/`renewLease`).
+
+### Changed
+- **`ralph team N`** — Spawns N empty shell worker panes + 1 watcher Claude pane (was N worker Claude panes + 1 architect pane). Watcher pane title: `ralph-watcher`.
+- **`/ralph-kage-bunshin-loop`** — Massively simplified. New flow: read `$RALPH_TASK_ID` env var → implement via TDD → DoD Phase 1 → report `[DONE]`/`[FAIL]`/`[PATHOLOGY]` via fakechat → exit. Worker does not write to `tasks.json`.
+- **`/ralph-kage-bunshin-architect`** — No longer includes health monitoring. Reports `[APPROVED]`/`[REJECTED]` to watcher via fakechat then exits. Still writes `architect_review` to `state.json`.
+- **`/ralph-kage-bunshin-debug`** — Input changed from worker-provided to environment variables (`$RALPH_WORKER_ID`, `$RALPH_TASK_ID`, `$RALPH_PROJECT_DIR`). Reports `[DIAGNOSIS]` to watcher via fakechat then exits.
+- **`ralph recover`** — Simplified: resets expired/stuck tasks, then either delegates to running watcher session or spawns a fresh watcher + worker pane setup.
+- **`ralph status`** — One-shot display only; removed `--watch` option, notification logic, and lease/stuck reset (watcher handles these).
+- **Plugin count** — 7 skills (was 6). Added `ralph-kage-bunshin-watcher`.
+
+## [0.1.9] - 2026-03-23
+
+### Removed
+- **Status pane** — `ralph team N` no longer spawns a dedicated status pane. Pane count reduced from N+2 to N+1 (workers + architect only). The polling-based recovery loop was redundant with the architect's real-time fakechat monitoring.
+- **`ralph status --no-recover`** — auto-recovery has moved to the architect session; the flag is no longer applicable.
+- **`findStatusPane()`** — removed from `tmux.ts` along with tests; no longer needed after status pane removal.
+
+### Changed
+- **Architect skill gains health monitoring** — `/ralph-kage-bunshin-architect` now includes a Health Monitoring section: handles `[PATHOLOGY]`/`[CONVERGED]` messages, proactively checks for stuck tasks after 5 minutes of silence, and respawns workers on idle tmux panes.
+- **Eval coverage** — `ralph-kage-bunshin-architect`: 28 behavioral evals (was 24). New evals cover health monitoring: pathology reset+respawn, all-converged detection, proactive stuck check, expired lease reset.
+
+### Fixed
+- **Worker ID reuse in recover** — `ralph recover` previously assigned monotonically increasing worker IDs (`maxExistingId + 1`), causing pane count to grow from 3 to 9+ across multiple recovery cycles. Now reuses the smallest available IDs not held by active in-progress workers (e.g. workers 1,2,3 → worker 2 stuck → recover reuses worker 2 instead of spawning worker 4).
+
 ## [0.1.8] - 2026-03-23
 
 ### Added
@@ -16,30 +62,6 @@ All notable changes to this project will be documented in this file.
   - `ralph-kage-bunshin-loop`: 60 behavioral + 13 trigger (was 50 + 11)
   - `ralph-kage-bunshin-architect`: 24 behavioral + 12 trigger (was 20 + 12)
   - `ralph-kage-bunshin-verify`: 21 behavioral + 11 trigger (was 18 + 11)
-
-### Changed
-- **Architect pane runs with `--dangerously-skip-permissions`** — architect session previously launched without permission bypass, causing MCP tool calls (e.g. fakechat reply) to prompt for user approval and block autonomous operation. Now matches worker sessions.
-- `/ralph-kage-bunshin-loop` — Phase 1 (DoD) now enforces two new hard gates: skill artifact file existence + visual regression pass. Phase 2 (architect review) independently verifies both artifacts and visual comparison honesty.
-- `/ralph-kage-bunshin-verify` — report format expanded with Skill Artifacts and Visual Regression sections; PASS verdict now requires artifacts present + visual regression passed (when applicable).
-- `/ralph-kage-bunshin-architect` — replaced generic "runtime visual verification" with structured skill artifact verification and visual regression verification hard gates; added honesty check for rubber-stamped verdicts.
-
-### Fixed
-- **Stale worker directory cleanup** — `ralph team N` now removes worker directories with IDs > N from previous runs. Previously, `ralph team 4` after `ralph team 5` left `worker-5/state.json` as a ghost, causing wake signals to dead ports and preventing clean state. Cleanup runs AFTER `killSession` to prevent write conflicts with still-running workers.
-- **Stale worker cleanup in recover** — `ralph recover` now also cleans up stale worker directories after spawning new workers (both existing session and fallback session paths).
-- **Task claiming fairness** — Workers now pick tasks using worker-ID offset (`(workerID - 1) % claimableCount`) instead of all racing for the lowest ID. When 4 workers simultaneously claim 4 tasks, each selects a different task, eliminating collision cascades from the 1-second optimistic concurrency window.
-- **`consecutive_failures` validation** — Added to `WORKER_STATE_REQUIRED_FIELDS` in `readWorkerState`. Previously a state.json missing this field passed validation, potentially causing `undefined` arithmetic downstream.
-- **Initial worker state consistency** — `createInitialWorkerState` now includes `external_service_block: false` in pathology, `approach_history: []`, and `visual_regression: false` + `skill_artifacts: false` in `dod_checklist`, matching the SKILL.md template contract.
-
-### Changed
-- **Channel-based notifications** — Workers now push real-time events (convergence, pathology, broadcasts) directly to architect session via [Claude Code Channels](https://code.claude.com/docs/en/channels) ([fakechat](https://code.claude.com/docs/en/channels#quickstart)). File-based mailbox system removed entirely.
-- **`status --watch` role clarified** — `status --watch` retains macOS/Slack/Discord notifications for convergence and pathology events (user-facing). Fakechat notifications are worker-owned (pushed directly via curl), preventing duplication. Default polling interval changed from 5s to 30s.
-- **`fakechat_channel` config removed** — Replaced by `fakechat_port` (optional). Workers use `$FAKECHAT_PORT` env var (written to `.env` by `ralph team`).
-
-### Removed
-- **Mailbox system** — `src/core/mailbox.ts`, `ralph status --messages` CLI command, and all mailbox file I/O. Workers communicate via fakechat channel push instead.
-- **`notify()` fakechat posting** — `notify()` no longer posts to fakechat (workers do this directly via curl). Retains macOS, Slack, and Discord webhook support.
-
-### Added
 - `fakechat_port` config option (`~/.ralph/config.json` → `notifications.fakechat_port`) for non-standard port. Falls back to `FAKECHAT_PORT` env var, then `8787`.
 - `getFakechatPort()` exported from `notify.ts` for consistent port resolution across the codebase.
 - `/ralph-kage-bunshin-loop` — workers now `curl POST localhost:8787/upload` on convergence and critical discoveries instead of writing mailbox files.
@@ -52,15 +74,31 @@ All notable changes to this project will be documented in this file.
 - `WorkerState.fakechat_port` — records each worker's fakechat port in state.json so other participants can discover and POST to it.
 - `/ralph-kage-bunshin-loop` — wait mode: workers stay alive when blocked on dependencies, wake up instantly via fakechat signal. Convergence step now broadcasts to all peer workers. All architect-directed notifications use hardcoded port 8787 (not `$FAKECHAT_PORT` which is now the worker's own port).
 
+### Removed
+- **Mailbox system** — `src/core/mailbox.ts`, `ralph status --messages` CLI command, and all mailbox file I/O. Workers communicate via fakechat channel push instead.
+- **`notify()` fakechat posting** — `notify()` no longer posts to fakechat (workers do this directly via curl). Retains macOS, Slack, and Discord webhook support.
+
+### Changed
+- **Architect pane runs with `--dangerously-skip-permissions`** — architect session previously launched without permission bypass, causing MCP tool calls (e.g. fakechat reply) to prompt for user approval and block autonomous operation. Now matches worker sessions.
+- `/ralph-kage-bunshin-loop` — Phase 1 (DoD) now enforces two new hard gates: skill artifact file existence + visual regression pass. Phase 2 (architect review) independently verifies both artifacts and visual comparison honesty.
+- `/ralph-kage-bunshin-verify` — report format expanded with Skill Artifacts and Visual Regression sections; PASS verdict now requires artifacts present + visual regression passed (when applicable).
+- `/ralph-kage-bunshin-architect` — replaced generic "runtime visual verification" with structured skill artifact verification and visual regression verification hard gates; added honesty check for rubber-stamped verdicts.
+- **Channel-based notifications** — Workers now push real-time events (convergence, pathology, broadcasts) directly to architect session via [Claude Code Channels](https://code.claude.com/docs/en/channels) ([fakechat](https://code.claude.com/docs/en/channels#quickstart)). File-based mailbox system removed entirely.
+- **`status --watch` role clarified** — `status --watch` retains macOS/Slack/Discord notifications for convergence and pathology events (user-facing). Fakechat notifications are worker-owned (pushed directly via curl), preventing duplication. Default polling interval changed from 5s to 30s.
+- **`fakechat_channel` config removed** — Replaced by `fakechat_port` (optional). Workers use `$FAKECHAT_PORT` env var (written to `.env` by `ralph team`).
+- `recover.ts` — pane recycling rewritten as 3-phase process: (1) terminate orphaned workers via `sendRawKeys` + `sendKeys`, (2) kill terminated panes in reverse index order to prevent index shifting, (3) split fresh panes and launch new workers. Explicit `paneToWorkerId` mapping replaces fragile `findIndex` lookup.
+
 ### Fixed
 - **Orphaned worker pane accumulation** — `ralph recover` previously failed to detect and recycle orphaned worker panes (Claude still running but task reset to pending by expire/stuck detection). This caused pane count to grow with each recovery cycle (e.g. 4 → 6 → 8 panes) while orphaned workers continued working on tasks they no longer owned, leading to race conditions. Recovery now detects orphaned panes by comparing pane titles against active task assignments, terminates them (`Ctrl+C` → `exit`), and recycles the pane for the new worker.
+- **Stale worker directory cleanup** — `ralph team N` now removes worker directories with IDs > N from previous runs. Previously, `ralph team 4` after `ralph team 5` left `worker-5/state.json` as a ghost, causing wake signals to dead ports and preventing clean state. Cleanup runs AFTER `killSession` to prevent write conflicts with still-running workers.
+- **Stale worker cleanup in recover** — `ralph recover` now also cleans up stale worker directories after spawning new workers (both existing session and fallback session paths).
+- **Task claiming fairness** — Workers now pick tasks using worker-ID offset (`(workerID - 1) % claimableCount`) instead of all racing for the lowest ID. When 4 workers simultaneously claim 4 tasks, each selects a different task, eliminating collision cascades from the 1-second optimistic concurrency window.
+- **`consecutive_failures` validation** — Added to `WORKER_STATE_REQUIRED_FIELDS` in `readWorkerState`. Previously a state.json missing this field passed validation, potentially causing `undefined` arithmetic downstream.
+- **Initial worker state consistency** — `createInitialWorkerState` now includes `external_service_block: false` in pathology, `approach_history: []`, and `visual_regression: false` + `skill_artifacts: false` in `dod_checklist`, matching the SKILL.md template contract.
 - **Elapsed time drift** — `ralph status` and `ralph report` computed elapsed time from `state.started_at`, which was reset whenever `initWorkerState` was called (recovery, worker restart). Elapsed now uses `task.claimed_at` from tasks.json as primary source (immutable after claim), falling back to `state.started_at` only if `claimed_at` is unavailable.
 - **initWorkerState overwrites started_at on recovery** — added `preserveStartedAt` option to `initWorkerState()`. Recovery now passes `{ preserveStartedAt: true }` to retain the original timestamp when recycling a worker.
 - **Stale pane indices after kill** — tmux renumbers pane indices after `kill-pane`, but idle pane indices were stored before kills, causing launches on non-existent panes. Idle panes are now re-scanned by command detection after all kills complete.
 - **`recover.ts` orphaned worker termination** — failed `exit` command now logs warning instead of silently failing; `FAKECHAT_PORT` written to `.env` on recovery (same as `team.ts`).
-
-### Changed
-- `recover.ts` — pane recycling rewritten as 3-phase process: (1) terminate orphaned workers via `sendRawKeys` + `sendKeys`, (2) kill terminated panes in reverse index order to prevent index shifting, (3) split fresh panes and launch new workers. Explicit `paneToWorkerId` mapping replaces fragile `findIndex` lookup.
 
 ## [0.1.7] - 2026-03-21
 

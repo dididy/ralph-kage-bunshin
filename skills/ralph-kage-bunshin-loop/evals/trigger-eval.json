@@ -8,7 +8,7 @@
     "should_trigger": false
   },
   {
-    "query": "Claim a task and start working on it",
+    "query": "Implement the assigned task via TDD",
     "should_trigger": false
   },
   {

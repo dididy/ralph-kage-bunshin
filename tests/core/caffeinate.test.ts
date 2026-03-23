@@ -36,16 +36,6 @@ describe('caffeinate', () => {
     expect(spawn).toHaveBeenCalledTimes(1)
   })
 
-  it('stopCaffeinate kills the process and removes PID file', async () => {
-    const mockProcess = { unref: vi.fn(), pid: 123, kill: vi.fn() }
-    vi.mocked(spawn).mockReturnValue(mockProcess as any)
-    const { startCaffeinate, stopCaffeinate } = await import('../../src/core/caffeinate')
-    startCaffeinate()
-    stopCaffeinate()
-    expect(mockProcess.kill).toHaveBeenCalled()
-    expect(fs.unlinkSync).toHaveBeenCalled()
-  })
-
   it('writes PID file after spawning', async () => {
     const mockProcess = { unref: vi.fn(), pid: 456 }
     vi.mocked(spawn).mockReturnValue(mockProcess as any)

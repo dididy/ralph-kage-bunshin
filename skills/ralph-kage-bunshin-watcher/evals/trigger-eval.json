@@ -1,0 +1,42 @@
+[
+  {
+    "query": "Start orchestrating the ralph team",
+    "should_trigger": false
+  },
+  {
+    "query": "Manage task assignments for workers",
+    "should_trigger": false
+  },
+  {
+    "query": "Monitor worker health and reassign stuck tasks",
+    "should_trigger": false
+  },
+  {
+    "query": "Write code to fix the failing test",
+    "should_trigger": false
+  },
+  {
+    "query": "Review worker 3's implementation for spec compliance",
+    "should_trigger": false
+  },
+  {
+    "query": "Diagnose why worker 1 has 3 consecutive failures",
+    "should_trigger": false
+  },
+  {
+    "query": "Set up a new ralph project with interview",
+    "should_trigger": false
+  },
+  {
+    "query": "Run the TDD loop for my assigned task",
+    "should_trigger": false
+  },
+  {
+    "query": "Check if worker 2's task meets acceptance criteria",
+    "should_trigger": false
+  },
+  {
+    "query": "Spawn an architect to review task 4",
+    "should_trigger": false
+  }
+]

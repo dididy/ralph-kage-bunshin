@@ -1,0 +1,222 @@
+[
+  {
+    "eval_id": 0,
+    "eval_name": "watcher-01-reads-tasks-json-on-start",
+    "prompt": "Start orchestrating",
+    "setup": "RALPH_PROJECT_DIR=/project, RALPH_WORKER_COUNT=3, tasks.json has 5 tasks with dependencies",
+    "assertions": [
+      "Reads $RALPH_PROJECT_DIR and $RALPH_WORKER_COUNT from env",
+      "Reads .ralph/tasks.json to build dependency graph",
+      "Identifies claimable tasks (pending with deps met)"
+    ]
+  },
+  {
+    "eval_id": 1,
+    "eval_name": "watcher-02-assigns-setup-to-one-worker",
+    "prompt": "Start orchestrating",
+    "setup": "tasks.json has setup task (id:1, no depends_on) and 3 parallel tasks depending on it",
+    "assertions": [
+      "Assigns setup task to worker-1 only",
+      "Does NOT activate workers 2 and 3",
+      "Updates tasks.json: task 1 status to in-progress"
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "watcher-03-launches-claude-via-sendkeys",
+    "prompt": "Assign task 2 to worker-1",
+    "setup": "Worker pane 0 has title ralph-worker-1, running zsh",
+    "assertions": [
+      "Uses tmux send-keys to launch claude on the pane",
+      "Passes RALPH_WORKER_ID, RALPH_TASK_ID, RALPH_PROJECT_DIR as env vars",
+      "Includes --dangerously-skip-permissions and /ralph-kage-bunshin-loop"
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "watcher-04-handles-done-message",
+    "prompt": "[DONE] {\"task_id\":2,\"worker_id\":1}",
+    "setup": "Task 2 in-progress, worker 1 on pane 0",
+    "assertions": [
+      "Reads worker-1 state.json dod_checklist",
+      "Spawns architect review on the same pane (pane 0)",
+      "Does NOT mark task as converged yet"
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "watcher-05-handles-approved-message",
+    "prompt": "[APPROVED] {\"task_id\":2,\"notes\":\"All criteria met\"}",
+    "setup": "Task 2 in-progress on worker 1, tasks 3,4 depend on task 2",
+    "assertions": [
+      "Sets task 2 status to converged in tasks.json",
+      "Re-evaluates dependency graph for newly claimable tasks",
+      "Assigns next claimable tasks to available worker panes"
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "watcher-06-handles-rejected-message",
+    "prompt": "[REJECTED] {\"task_id\":2,\"reasons\":[\"Missing edge case test\"]}",
+    "setup": "Task 2 in-progress on worker 1, pane 0",
+    "assertions": [
+      "Writes rejection reasons to worker-1 state.json architect_review",
+      "Task stays in-progress in tasks.json",
+      "Spawns new worker Claude session on the same pane to retry"
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "watcher-07-handles-fail-3plus",
+    "prompt": "[FAIL] {\"task_id\":2,\"worker_id\":1,\"error\":\"Test assertion failed\",\"consecutive_failures\":3}",
+    "setup": "Task 2 in-progress on worker 1, pane 0",
+    "assertions": [
+      "Spawns debugger on the same pane",
+      "Uses /ralph-kage-bunshin-debug skill",
+      "Passes RALPH_WORKER_ID and RALPH_TASK_ID env vars"
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "watcher-08-handles-diagnosis",
+    "prompt": "[DIAGNOSIS] {\"task_id\":2,\"root_cause\":\"Wrong selector\",\"proposed_fix\":\"Change querySelector to getElementById\",\"confidence\":\"high\"}",
+    "setup": "Debugger just ran for task 2, worker 1",
+    "assertions": [
+      "Writes diagnosis to worker-1 state.json debug_session",
+      "Resets consecutive_failures to 0",
+      "Spawns new worker Claude session to apply the fix"
+    ]
+  },
+  {
+    "eval_id": 8,
+    "eval_name": "watcher-09-handles-pathology",
+    "prompt": "[PATHOLOGY] {\"task_id\":2,\"worker_id\":1,\"type\":\"oscillation\"}",
+    "setup": "Task 2 in-progress on worker 1, tasks 3,4 are also pending",
+    "assertions": [
+      "Resets task 2 to pending in tasks.json",
+      "Sets pathology.oscillation to true in worker-1 state.json",
+      "Considers assigning a different task to the worker pane"
+    ]
+  },
+  {
+    "eval_id": 9,
+    "eval_name": "watcher-10-dynamic-scaling-wave2",
+    "prompt": "[APPROVED] {\"task_id\":1,\"notes\":\"Setup complete\"}",
+    "setup": "Task 1 was setup (converged now), tasks 2,3,4 depend on 1, RALPH_WORKER_COUNT=3",
+    "assertions": [
+      "Activates 3 worker panes simultaneously",
+      "Assigns tasks 2,3,4 to workers 1,2,3 respectively",
+      "Each gets a fresh Claude session"
+    ]
+  },
+  {
+    "eval_id": 10,
+    "eval_name": "watcher-11-lease-expiry-check",
+    "prompt": "Health check cycle",
+    "setup": "Task 3 has lease_expires_at in the past, worker pane shows zsh (not claude)",
+    "assertions": [
+      "Detects expired lease in tasks.json",
+      "Resets task to pending",
+      "Re-assigns the task to an idle pane"
+    ]
+  },
+  {
+    "eval_id": 11,
+    "eval_name": "watcher-12-stuck-task-check",
+    "prompt": "Health check cycle",
+    "setup": "Worker 2 state.json updated_at is 15 minutes ago, pane still running claude",
+    "assertions": [
+      "Detects stale updated_at (>10 min)",
+      "Checks pane state before resetting",
+      "Takes appropriate action (reset or wait)"
+    ]
+  },
+  {
+    "eval_id": 12,
+    "eval_name": "watcher-13-all-converged-completion",
+    "prompt": "[APPROVED] {\"task_id\":5,\"notes\":\"Final task done\"}",
+    "setup": "Tasks 1-4 already converged, task 5 was the last",
+    "assertions": [
+      "Detects all tasks are converged",
+      "Sends macOS notification",
+      "Prints summary with task names and worker assignments"
+    ]
+  },
+  {
+    "eval_id": 13,
+    "eval_name": "watcher-14-pane-title-resolution",
+    "prompt": "Need to send command to worker 2",
+    "setup": "Pane indices may have shifted after kills",
+    "assertions": [
+      "Resolves pane index by title (ralph-worker-2) not by index",
+      "Uses tmux list-panes with pane_title filter",
+      "Never assumes pane N = worker N"
+    ]
+  },
+  {
+    "eval_id": 14,
+    "eval_name": "watcher-15-tasks-json-sole-writer",
+    "prompt": "Worker reports [DONE]",
+    "setup": "Normal operation",
+    "assertions": [
+      "Only the watcher writes to tasks.json",
+      "Worker does not modify tasks.json",
+      "Architect does not modify tasks.json"
+    ]
+  },
+  {
+    "eval_id": 15,
+    "eval_name": "watcher-16-fresh-session-per-assignment",
+    "prompt": "Assign next task after approval",
+    "setup": "Worker 1 just had its task approved, new claimable task available",
+    "assertions": [
+      "Spawns a new Claude session on the pane",
+      "Does NOT reuse the architect session",
+      "New session starts with clean context"
+    ]
+  },
+  {
+    "eval_id": 16,
+    "eval_name": "watcher-17-broadcast-handling",
+    "prompt": "[BROADCAST] worker-2: API endpoint /v2/items returns 404, use /v3/items instead",
+    "setup": "Worker 2 discovered API change",
+    "assertions": [
+      "Logs the broadcast",
+      "Notes the discovery for future task assignments",
+      "Does NOT crash or ignore the message"
+    ]
+  },
+  {
+    "eval_id": 17,
+    "eval_name": "watcher-18-idle-pane-no-waste",
+    "prompt": "Only 1 claimable task with 3 worker panes",
+    "setup": "RALPH_WORKER_COUNT=3, only task 2 is claimable",
+    "assertions": [
+      "Activates only worker-1 for the task",
+      "Workers 2 and 3 remain as empty shells",
+      "No tokens wasted on idle workers"
+    ]
+  },
+  {
+    "eval_id": 18,
+    "eval_name": "watcher-19-renews-lease-on-rejection",
+    "prompt": "[REJECTED] {\"task_id\":3,\"reasons\":[\"Missing test\"]}",
+    "setup": "Task 3 in-progress, lease about to expire",
+    "assertions": [
+      "Renews task lease_expires_at to now + 30 minutes",
+      "Task stays in-progress",
+      "Worker gets a fresh session to retry"
+    ]
+  },
+  {
+    "eval_id": 19,
+    "eval_name": "watcher-20-no-code-writing",
+    "prompt": "Worker is stuck, fix the code",
+    "setup": "Worker reports failure",
+    "assertions": [
+      "Does NOT write any source code",
+      "Spawns a debugger to diagnose",
+      "Orchestrates, does not implement"
+    ]
+  }
+]

@@ -1,14 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getStatus, printStatus } from '../../src/commands/status'
 import * as state from '../../src/core/state'
-import * as recoverModule from '../../src/commands/recover'
-import * as configModule from '../../src/core/config'
-import * as notifyModule from '../../src/core/notify'
 
 vi.mock('../../src/core/state')
-vi.mock('../../src/commands/recover')
-vi.mock('../../src/core/config')
-vi.mock('../../src/core/notify')
 
 function makeWorkerState(overrides: Partial<import('../../src/types').WorkerState> = {}): import('../../src/types').WorkerState {
   return {
@@ -26,14 +20,6 @@ function makeWorkerState(overrides: Partial<import('../../src/types').WorkerStat
 describe('ralph status', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.mocked(state.resetExpiredLeases).mockReturnValue([])
-    vi.mocked(state.resetStuckTasks).mockReturnValue([])
-    vi.mocked(recoverModule.runRecover).mockReturnValue(undefined)
-    vi.mocked(configModule.loadConfig).mockReturnValue({
-      notifications: { macos: false, slack_webhook: '', discord_webhook: '' },
-      caffeinate: false,
-    })
-    vi.mocked(notifyModule.notify).mockReturnValue(undefined)
   })
 
   it('returns worker status', () => {
@@ -179,41 +165,6 @@ describe('ralph status', () => {
     }))
     const status = getStatus('/tmp/test')
     expect(status.workers[0].architectStatus).toBe('rejected')
-  })
-
-  it('expired lease with autoRecover=true triggers runRecover', () => {
-    vi.mocked(state.resetExpiredLeases).mockReturnValue([2])
-    vi.mocked(state.readTasks).mockReturnValue([])
-    printStatus('/tmp/test', new Set(), new Set(), true)
-    expect(recoverModule.runRecover).toHaveBeenCalledWith('/tmp/test', undefined)
-  })
-
-  it('expired lease with autoRecover=false does not trigger runRecover', () => {
-    vi.mocked(state.resetExpiredLeases).mockReturnValue([2])
-    vi.mocked(state.readTasks).mockReturnValue([])
-    printStatus('/tmp/test', new Set(), new Set(), false)
-    expect(recoverModule.runRecover).not.toHaveBeenCalled()
-  })
-
-  it('stuck tasks with autoRecover=true triggers runRecover', () => {
-    vi.mocked(state.resetStuckTasks).mockReturnValue([3])
-    vi.mocked(state.readTasks).mockReturnValue([])
-    printStatus('/tmp/test', new Set(), new Set(), true)
-    expect(recoverModule.runRecover).toHaveBeenCalled()
-  })
-
-  it('stuck tasks with autoRecover=false does not trigger runRecover', () => {
-    vi.mocked(state.resetStuckTasks).mockReturnValue([3])
-    vi.mocked(state.readTasks).mockReturnValue([])
-    printStatus('/tmp/test', new Set(), new Set(), false)
-    expect(recoverModule.runRecover).not.toHaveBeenCalled()
-  })
-
-  it('passes sessionName to runRecover', () => {
-    vi.mocked(state.resetExpiredLeases).mockReturnValue([1])
-    vi.mocked(state.readTasks).mockReturnValue([])
-    printStatus('/tmp/test', new Set(), new Set(), true, 'ralph-session')
-    expect(recoverModule.runRecover).toHaveBeenCalledWith('/tmp/test', 'ralph-session')
   })
 
   it('prints [WARN] icon for pathology workers', () => {

@@ -1,6 +1,4 @@
-import path from 'path'
 import { Command } from 'commander'
-import { stopCaffeinate } from './core/caffeinate'
 import { runTeam } from './commands/team'
 import { runRecover } from './commands/recover'
 import { printStatus } from './commands/status'
@@ -41,30 +39,8 @@ program
 program
   .command('status')
   .description('Show all worker status')
-  .option('-w, --watch [seconds]', 'Refresh every N seconds (default 30 if omitted)')
-  .option('--no-recover', 'Disable auto-recovery of expired leases in watch mode')
-  .action((opts: { watch?: string | boolean; recover?: boolean }) => {
-    const cwd = process.cwd()
-    if (opts.watch !== undefined) {
-      const rawInterval = opts.watch === true ? 30 : parseInt(opts.watch as string, 10)
-      if (!Number.isInteger(rawInterval) || rawInterval < 1) {
-        console.error('Error: --watch interval must be a positive integer (seconds)')
-        process.exit(1)
-      }
-      const interval = rawInterval
-      const autoRecover = opts.recover !== false
-      const notifiedConverged = new Set<number>()
-      const notifiedPathology = new Set<number>()
-      const sessionName = `ralph-${path.basename(cwd).replace(/[^A-Za-z0-9_-]/g, '_')}`
-      printStatus(cwd, notifiedConverged, notifiedPathology, autoRecover, sessionName)
-      const intervalId = setInterval(() => {
-        console.clear()
-        printStatus(cwd, notifiedConverged, notifiedPathology, autoRecover, sessionName)
-      }, interval * 1000)
-      process.on('SIGINT', () => { clearInterval(intervalId); stopCaffeinate(); process.exit(0) })
-    } else {
-      printStatus(cwd)
-    }
+  .action(() => {
+    printStatus(process.cwd())
   })
 
 const profileCmd = program

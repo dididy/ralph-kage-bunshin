@@ -253,6 +253,9 @@ Ask: **"Does this look right? Any changes before I write the files?"**
 - A **wave** is a set of tasks that can start in parallel once their `depends_on` tasks are all converged. Waves are sequential — wave 2 starts after wave 1 finishes. Worker recommendation = max tasks in any single wave. Example: wave 1 has 1 task, wave 2 has 2 tasks → max parallel = 2 → `ralph team 2`.
 - **If a task involves reverse-engineering visual behavior from an existing site** (animations, transitions, UI cloning): include `/transition-reverse-engineering` or `/ui-reverse-engineering` in the task `description` — the worker will invoke the skill, which contains the full procedure
 
+**New skill file location rule:**
+When the project requires creating **new** Claude Code skills (not existing ones like `/ralph-kage-bunshin-loop`), task descriptions MUST specify `skills/<skill-name>/SKILL.md` (project root), NOT `.claude/skills/`. Writing new files to `.claude/skills/` triggers Claude Code's self-modification protection, which prompts for confirmation even with `--dangerously-skip-permissions`. By creating new skills in `skills/`, workers treat them as normal project files with no permission issues. Include a setup step in task 1 (or a dedicated task) to create `skills/install.sh` — a script that copies `skills/*/` → `.claude/skills/*/` for slash command usage after development. The CLAUDE.md template below includes the relevant instructions.
+
 **Before writing tasks.json — UI clone check:**
 If the project goal mentions cloning, copying, reproducing, replicating, or pixel-level recreation of an existing website/page, EVERY UI implementation task MUST include `/ui-reverse-engineering` in its `description`. For tasks that specifically involve animations or transitions, also include `/transition-reverse-engineering`. This is not optional — omitting it means the worker will implement from text description alone without comparing against the reference, producing visually incorrect results. Also ensure the reference URL is recorded in SPEC.md under `## Reference`.
 
@@ -267,6 +270,12 @@ If the project goal mentions cloning, copying, reproducing, replicating, or pixe
 - Do not expand scope beyond .ralph/SPEC.md
 - On external service failure: try direct fetch → proxy → mock fallback in order. Never stop — mock is last resort, not first.
 - When stuck: break into smaller pieces, max 3 attempts per approach
+
+## New Skills
+- New skills created by this project go in `skills/<skill-name>/SKILL.md` (NOT `.claude/skills/`)
+- This avoids Claude Code's self-modification permission prompts during development
+- Workers read/write these as normal project files — no permission issues
+- After development, run `bash skills/install.sh` to install to `.claude/skills/` for slash command usage
 
 ## Testing
 - Unit/integration: Vitest
@@ -286,15 +295,14 @@ These apply to every line of code, regardless of language or framework:
 - [ ] Assigned task complete per .ralph/SPEC.md done criteria
 
 ## Convergence Condition
-When all DoD items above are satisfied, run two phases:
+When all DoD items above are satisfied:
 
-**Phase 1 — Inline Verification:**
+**Self-Verification:**
 Re-run tests fresh, mark each acceptance criterion as VERIFIED/PARTIAL/MISSING, mark each E2E scenario as COVERED/MISSING. Write `dod_checklist` to state.json.
 
-**Phase 2 — Inline Architect Review (independent self-audit):**
-Read SPEC.md + source + tests as if seeing them for the first time. Apply Code Correctness Rules to each file touched. Steelman the rejection. Write `converged: true` and `architect_review: { status: "approved" }` atomically into state.json and tasks.json only if no gaps found.
-
-If REJECTED: fix gaps, repeat from Phase 1.
+**Verdict:**
+- All VERIFIED + all COVERED + tests + build green → report `[DONE]` to watcher and exit
+- Any FAIL or MISSING → fix gaps and repeat
 ```
 
 Write the files, then do NOT run `ralph team` automatically. Print this and stop:
@@ -312,9 +320,17 @@ To watch workers in tmux:
 
   tmux attach -t ralph-<project-name>
 
-To monitor status:
+To check status:
 
-  ralph status --watch
+  ralph status
+```
+
+**If the project creates new Claude Code skills** (i.e., `skills/` directory exists in the plan), also print:
+
+```
+After all tasks are done, install new skills for slash command usage:
+
+  bash skills/install.sh
 ```
 
 ---

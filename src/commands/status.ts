@@ -1,7 +1,4 @@
-import { readTasks, readWorkerState, resetExpiredLeases, resetStuckTasks } from '../core/state'
-import { notify } from '../core/notify'
-import { loadConfig } from '../core/config'
-import { runRecover } from './recover'
+import { readTasks, readWorkerState } from '../core/state'
 
 export interface WorkerStatus {
   workerId: number
@@ -70,33 +67,8 @@ export function getStatus(projectDir: string): RalphStatus {
   return { workers, maxElapsedMinutes: maxElapsed } satisfies RalphStatus
 }
 
-export function printStatus(
-  projectDir: string,
-  notifiedConverged = new Set<number>(),
-  notifiedPathology = new Set<number>(),
-  autoRecover = false,
-  sessionName?: string,
-): void {
-  const expiredIds = resetExpiredLeases(projectDir)
-  for (const id of expiredIds) {
-    console.log(`  [LEASE] Task ${id} lease expired — reset to pending`)
-  }
-  if (expiredIds.length > 0 && autoRecover) {
-    console.log(`  [RECOVER] Auto-recovering ${expiredIds.length} expired task(s)...`)
-    runRecover(projectDir, sessionName)
-  }
-
-  const stuckIds = resetStuckTasks(projectDir)
-  for (const id of stuckIds) {
-    console.log(`  [STUCK] Task ${id} stuck (no update >10min) — reset to pending`)
-  }
-  if (stuckIds.length > 0 && autoRecover) {
-    console.log(`  [RECOVER] Auto-recovering ${stuckIds.length} stuck task(s)...`)
-    runRecover(projectDir, sessionName)
-  }
-
+export function printStatus(projectDir: string): void {
   const { workers, maxElapsedMinutes } = getStatus(projectDir)
-  const config = loadConfig()
 
   console.log('\nWorker status:')
   for (const w of workers) {
@@ -107,15 +79,6 @@ export function printStatus(
       : w.architectStatus === 'pending' ? ' [ARCH:?]'
       : ''
     console.log(`  ${icon} worker-${w.workerId} [${w.task}] gen.${w.generation}${pathInfo}${archInfo}`)
-
-    // macOS / Slack / Discord notifications (fakechat handled by workers directly)
-    if (w.converged && !notifiedConverged.has(w.workerId)) {
-      notify({ title: 'Ralph', message: `CONVERGED: worker-${w.workerId} [${w.task}]`, config })
-      notifiedConverged.add(w.workerId)
-    } else if (w.hasPathology && !notifiedPathology.has(w.workerId)) {
-      notify({ title: 'Ralph', message: `PATHOLOGY: worker-${w.workerId} ${w.pathologyType}`, config })
-      notifiedPathology.add(w.workerId)
-    }
   }
 
   const h = Math.floor(maxElapsedMinutes / 60)

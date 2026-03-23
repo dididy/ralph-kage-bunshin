@@ -60,27 +60,6 @@ export function listPanes(session: string): number[] {
   }
 }
 
-/**
- * Synchronous sleep using the system sleep command.
- */
-export function sleepSync(seconds: number): void {
-  try {
-    execFileSync('sleep', [String(seconds)], { stdio: 'pipe' })
-  } catch { /* ignore */ }
-}
-
-/**
- * Send raw key sequences (e.g. 'C-c') without appending Enter.
- * Use for control characters that should not be followed by a newline.
- */
-export function sendRawKeys(session: string, pane: number, ...keys: string[]): void {
-  try {
-    exec(['send-keys', '-t', `${session}.${pane}`, ...keys])
-  } catch {
-    // best-effort — pane may be unresponsive
-  }
-}
-
 export function killPane(session: string, pane: number): void {
   try {
     exec(['kill-pane', '-t', `${session}.${pane}`])
@@ -130,7 +109,6 @@ export function getPaneCommands(session: string): Map<number, string> {
 
 /**
  * Find pane indices running an idle shell (zsh/bash/fish/sh).
- * Excludes the status pane (identified by running `ralph` or `node` with --watch).
  */
 export function findIdlePanes(session: string): number[] {
   const cmds = getPaneCommands(session)
@@ -163,35 +141,3 @@ export function getPaneTitles(session: string): Map<number, string> {
   return result
 }
 
-/**
- * Find the status pane by title first ('ralph-status'), then fall back to
- * command detection ('node' or 'watch'). Title-based detection is reliable
- * because `team.ts` sets it explicitly; command-based is a fallback for
- * sessions created before this change.
- */
-export function findStatusPane(session: string): number | null {
-  // Primary: match by pane title
-  const titles = getPaneTitles(session)
-  for (const [paneIdx, title] of titles) {
-    if (title === 'ralph-status') return paneIdx
-  }
-  // Fallback: match by foreground command
-  const panes = listPanes(session)
-  const cmds = getPaneCommands(session)
-  for (const paneIdx of panes) {
-    const cmd = cmds.get(paneIdx) ?? ''
-    if (cmd === 'node' || cmd === 'watch') return paneIdx
-  }
-  return null
-}
-
-/**
- * Find the architect pane by title ('ralph-architect').
- */
-export function findArchitectPane(session: string): number | null {
-  const titles = getPaneTitles(session)
-  for (const [paneIdx, title] of titles) {
-    if (title === 'ralph-architect') return paneIdx
-  }
-  return null
-}

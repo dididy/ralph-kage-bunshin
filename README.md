@@ -8,8 +8,8 @@
 </p>
 
 <h3 align="center">
-  ralph-kage-bunshin (Ralph Wiggum 影分身) — orchestrate parallel Claude Code workers in tmux.<br>
-  You define the spec, workers claim tasks, write tests, implement, and converge.
+  ralph-kage-bunshin (Ralph Wiggum 影分身) — you design, agents forge through the night.<br>
+  A watcher orchestrates parallel Claude Code workers in tmux: assigns tasks, reviews code, recovers from failures — all autonomously.
 </h3>
 
 <p align="center">
@@ -25,14 +25,15 @@
 
 | Feature | Description |
 |---------|-------------|
-| **Parallel workers** | N workers claim tasks independently in tmux panes |
-| **Fair task claiming** | Worker-ID offset distribution — no collision cascades when multiple workers claim simultaneously |
-| **Task dependencies** | `depends_on` ensures correct ordering — workers wait automatically |
-| **Agent pipeline** | Worker → Debugger (on failure) → Verify → Architect review |
+| **Watcher orchestrator** | Central Claude session manages all task assignment, worker lifecycle, and health monitoring |
+| **Dynamic scaling** | Only activates worker panes when parallel tasks exist — idle panes = zero tokens |
+| **Fresh sessions** | Every task assignment starts a new Claude session — no context pollution |
+| **Task dependencies** | `depends_on` ensures correct ordering — watcher evaluates the dependency graph |
+| **Agent pipeline** | Watcher → Worker → Debugger (on failure) → Architect review |
 | **Visual regression** | Automated screenshot comparison between reference site and clone via `agent-browser` — blocks convergence on mismatch |
 | **Skill artifacts** | Physical measurement files required to prove `/ui-reverse-engineering` and `/transition-reverse-engineering` were actually invoked |
 | **Pathology detection** | Detects stuck patterns (stagnation, oscillation, etc.) and exits cleanly |
-| **Auto-recovery** | `--watch` detects crashed workers, recycles orphaned panes, and spawns replacements in-place |
+| **Auto-recovery** | Watcher monitors worker health, resets stuck tasks, and respawns workers |
 | **Clean state** | `ralph team N` cleans up stale worker directories from previous runs |
 | **Lease system** | 30-min leases prevent abandoned tasks from blocking progress |
 | **Git worktrees** | `isolated: true` tasks run in dedicated branches, no file conflicts |
@@ -56,7 +57,7 @@ Inside Claude Code, install the fakechat plugin:
 
 Requires: **Node.js 18+**, **tmux**, **[Claude Code](https://claude.ai/code)**, **[Channels](https://code.claude.com/docs/en/channels)** (v2.1.80+)
 
-> Workers communicate via [Claude Code Channels](https://code.claude.com/docs/en/channels) using the [fakechat plugin](https://code.claude.com/docs/en/channels#quickstart) for real-time notifications and wake signals.
+> Workers and the watcher communicate via [Claude Code Channels](https://code.claude.com/docs/en/channels) using the [fakechat plugin](https://code.claude.com/docs/en/channels#quickstart).
 
 **2. Set up your project**
 ```bash
@@ -72,31 +73,30 @@ Inside Claude Code:
 ralph team 3
 ```
 
-> `ralph team` automatically spawns an architect pane and a status pane (`ralph status --watch`) alongside the workers.
+> `ralph team` spawns N empty worker panes + 1 watcher Claude session. The watcher assigns tasks to workers dynamically.
 
 ---
 
 ## How It Works
 
 1. **Setup** — `/ralph-kage-bunshin-start` interviews you, then generates `SPEC.md`, `tasks.json`, `CLAUDE.md`
-2. **Spawn** — `ralph team N` opens N worker panes + 1 architect pane + 1 status pane in tmux
-3. **Work** — Each worker claims a task → writes tests → implements → refactors
-4. **Converge** — Tests pass → skill artifact check → visual regression → verify acceptance criteria → architect review → mark `converged` → wake up waiting workers
-5. **Wait & Wake** — Workers waiting for dependencies stay alive; when a task converges, wake signals are sent instantly via fakechat
-6. **Recover** — `--watch` auto-detects stuck/crashed workers and respawns (dependency waits no longer need recovery)
+2. **Spawn** — `ralph team N` opens N empty worker panes + 1 watcher Claude pane in tmux
+3. **Assign** — The watcher evaluates the dependency graph and launches Claude sessions on worker panes for claimable tasks
+4. **Work** — Each worker implements its assigned task via TDD → reports `[DONE]` → exits
+5. **Review** — Watcher spawns an architect on the same pane to review → `[APPROVED]` or `[REJECTED]`
+6. **Repeat** — On approval, watcher assigns the next claimable task. On rejection, respawns the worker. On 3+ failures, spawns a debugger.
+7. **Complete** — When all tasks are converged, watcher sends a macOS notification and prints a summary.
 
-Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation. All communication uses **bidirectional [Channels](https://code.claude.com/docs/en/channels)** via [fakechat](https://code.claude.com/docs/en/channels#quickstart): workers push notifications to the architect (port 8787), and converging workers wake blocked peers by posting to their fakechat ports (8788, 8789, ...). The architect pane is spawned automatically by `ralph team`.
+Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation. Workers communicate with the watcher via **[Channels](https://code.claude.com/docs/en/channels)** using [fakechat](https://code.claude.com/docs/en/channels#quickstart) (port 8787). Every task assignment, architect review, and debugger invocation starts a fresh Claude session — no context pollution.
 
 ---
 
 ## Commands
 
 ```
-ralph team <n>              Spawn N workers + architect + status
-ralph recover               Reset expired leases, relaunch workers
-ralph status                Show worker state
-ralph status --watch [N]    Live dashboard (refresh every N sec, default 30)
-ralph status --no-recover   Watch without auto-recovery
+ralph team <n>              Spawn N worker panes + watcher
+ralph recover               Reset expired leases, relaunch watcher
+ralph status                Show worker state (one-shot)
 ralph report                Per-worker summary with cost
 
 ralph secrets set KEY=val   Store a secret in .ralph/.env
@@ -111,18 +111,19 @@ ralph profile apply <name>  Apply a profile
 
 ## Skills
 
-Six skills installed via [skills.sh](https://skills.sh) (see Quick Start).
+Seven skills installed via [skills.sh](https://skills.sh) (see Quick Start).
 
 | Skill | Description |
 |-------|-------------|
 | `ralph-kage-bunshin-start` | Dimension-based interview → SPEC.md + tasks.json (with dependency waves) + CLAUDE.md |
-| `ralph-kage-bunshin-loop` | Worker execution loop: claim → TDD → lease renewal → pathology detection → DoD → converge |
+| `ralph-kage-bunshin-watcher` | Central orchestrator — task assignment, worker lifecycle, architect/debugger spawning, health monitoring |
+| `ralph-kage-bunshin-loop` | Worker execution loop: receive task → TDD → DoD → report result → exit |
 | `ralph-kage-bunshin-debug` | Root-cause diagnosis on 3+ failures — file:line evidence, ONE fix proposal, read-only |
 | `ralph-kage-bunshin-verify` | Read-only acceptance-criteria validation — PASS/FAIL/INCOMPLETE verdict, no state changes |
-| `ralph-kage-bunshin-architect` | Approval authority — spec compliance, steelman review, atomic converged state writes |
+| `ralph-kage-bunshin-architect` | Approval authority — spec compliance, steelman review, reports verdict to watcher |
 | `api-integration-checklist` | Pre-coding API integration check — CORS, auth, rate limits, proxy decision |
 
-Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`evals/trigger-eval.json`) compatible with [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md). 254 total test cases (183 behavioral + 71 trigger).
+Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`evals/trigger-eval.json`) compatible with [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md).
 
 ---
 

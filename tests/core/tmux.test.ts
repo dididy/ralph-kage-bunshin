@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createSession, splitPane, sendKeys, TmuxError, applyLayout, killSession, sessionExists, listPanes, killPane, getActivePaneIndex, getPaneCommands, findIdlePanes, findStatusPane, getPaneTitles, setPaneTitle } from '../../src/core/tmux'
+import { createSession, splitPane, sendKeys, TmuxError, applyLayout, killSession, sessionExists, listPanes, killPane, getActivePaneIndex, getPaneCommands, findIdlePanes, getPaneTitles, setPaneTitle } from '../../src/core/tmux'
 import { execFileSync } from 'child_process'
 
 vi.mock('child_process')
@@ -196,70 +196,6 @@ describe('tmux', () => {
     const mockExec = vi.mocked(execFileSync)
     mockExec.mockImplementation(() => { throw new Error('fail') })
     expect(getPaneTitles('ralph-test').size).toBe(0)
-  })
-
-  it('findStatusPane prefers title over command', () => {
-    const mockExec = vi.mocked(execFileSync)
-    mockExec.mockReturnValue(Buffer.from('0 zsh\n1 ralph-status\n2 node\n'))
-    const pane = findStatusPane('ralph-test')
-    expect(pane).toBe(1)
-  })
-
-  it('findStatusPane falls back to command when no title match', () => {
-    const mockExec = vi.mocked(execFileSync)
-    let callCount = 0
-    mockExec.mockImplementation((_cmd: unknown, args: unknown) => {
-      callCount++
-      const argArr = args as string[]
-      if (argArr.includes('#{pane_index} #{pane_title}')) {
-        return Buffer.from('0 default\n1 default\n')
-      }
-      if (argArr.includes('#{pane_index}')) {
-        return Buffer.from('0\n1\n')
-      }
-      if (argArr.includes('#{pane_index} #{pane_current_command}')) {
-        return Buffer.from('0 claude\n1 node\n')
-      }
-      return Buffer.from('')
-    })
-    const pane = findStatusPane('ralph-test')
-    expect(pane).toBe(1)
-  })
-
-  it('findStatusPane falls back to watch command', () => {
-    const mockExec = vi.mocked(execFileSync)
-    mockExec.mockImplementation((_cmd: unknown, args: unknown) => {
-      const argArr = args as string[]
-      if (argArr.includes('#{pane_index} #{pane_title}')) {
-        return Buffer.from('0 default\n')
-      }
-      if (argArr.includes('#{pane_index}')) {
-        return Buffer.from('0\n')
-      }
-      if (argArr.includes('#{pane_index} #{pane_current_command}')) {
-        return Buffer.from('0 watch\n')
-      }
-      return Buffer.from('')
-    })
-    expect(findStatusPane('ralph-test')).toBe(0)
-  })
-
-  it('findStatusPane returns null when nothing matches', () => {
-    const mockExec = vi.mocked(execFileSync)
-    mockExec.mockImplementation((_cmd: unknown, args: unknown) => {
-      const argArr = args as string[]
-      if (argArr.includes('#{pane_index} #{pane_title}')) {
-        return Buffer.from('0 default\n')
-      }
-      if (argArr.includes('#{pane_index}')) {
-        return Buffer.from('0\n')
-      }
-      if (argArr.includes('#{pane_index} #{pane_current_command}')) {
-        return Buffer.from('0 zsh\n')
-      }
-      return Buffer.from('')
-    })
-    expect(findStatusPane('ralph-test')).toBeNull()
   })
 
   it('getPaneCommands skips lines with NaN pane index', () => {

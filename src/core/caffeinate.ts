@@ -54,10 +54,3 @@ export function startCaffeinate(): void {
   }
 }
 
-export function stopCaffeinate(): void {
-  if (caffeinateProcess) {
-    caffeinateProcess.kill()
-    caffeinateProcess = null
-  }
-  try { fs.unlinkSync(PID_PATH) } catch { /* ignore */ }
-}
