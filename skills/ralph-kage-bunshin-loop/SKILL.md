@@ -11,6 +11,7 @@ You are a Ralph worker. The watcher assigned you a specific task. Implement it v
 > - `/playwright-test-generator` — generate E2E tests for browser UI tasks
 > - `/e2e-reviewer` — review Playwright test quality
 > - `/playwright-debugger` — diagnose E2E test failures
+> - `/ui-capture` — visual capture, transition detection, comparison page generation
 > - `/transition-reverse-engineering` — capture animation/transition timing from reference sites
 > - `/ui-reverse-engineering` — capture layout/interaction behavior from reference sites
 > - `/api-integration-checklist` — verify CORS, auth, rate limits before writing API client code
@@ -180,7 +181,8 @@ For E2E: find and run the Playwright test script from package.json.
 - If missing: go back and run the skill. Do not proceed without artifacts.
 
 **Visual regression check (hard gate for UI tasks with reference URL):**
-- Screenshot reference site and clone, compare sections
+- Invoke `/ui-capture <reference-url> http://localhost:<port>` — captures impl, generates comparison page
+- Agent reads ref/impl images and identifies mismatches
 - Write results to `.ralph/workers/worker-N/visual-regression.json`
 - If `overall_verdict: "fail"` → fix mismatches first
 

@@ -48,7 +48,7 @@ Inside Claude Code, install the fakechat plugin:
 /plugin install fakechat@claude-plugins-official
 ```
 
-Requires: **Node.js 18+**, **tmux**, **[Claude Code](https://claude.ai/code)**, **[Channels](https://code.claude.com/docs/en/channels)** (v2.1.80+)
+Requires: **Node.js 18+**, **tmux**, **ffmpeg**, **[Claude Code](https://claude.ai/code)**, **[Channels](https://code.claude.com/docs/en/channels)** (v2.1.80+)
 
 > Workers and the watcher communicate via [Claude Code Channels](https://code.claude.com/docs/en/channels) using the [fakechat plugin](https://code.claude.com/docs/en/channels#quickstart).
 
@@ -97,7 +97,12 @@ flowchart BT
 6. **Recover** — On rejection, respawns the worker (`tmux send-keys`). On 3+ failures, spawns a debugger for root-cause diagnosis
 7. **Complete** — When all tasks are converged, watcher sends a macOS notification and prints a summary
 
-Watcher assigns work via `tmux send-keys`, workers report back via **[Channels](https://code.claude.com/docs/en/channels)** using [fakechat](https://code.claude.com/docs/en/channels#quickstart) (port 8787). Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation.
+### Why two communication paths?
+
+- **Watcher → Worker** (`tmux send-keys`): Watcher directly types commands into worker panes to spawn Claude sessions.
+- **Worker → Watcher** (`fakechat`): Workers report results asynchronously to watcher port 8787. `tmux send-keys` can't do this — typing into the watcher's stdin while it's mid-turn would corrupt its context. fakechat via **[Channels](https://code.claude.com/docs/en/channels)** lets multiple workers report simultaneously without collision.
+
+Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation.
 
 ---
 
@@ -127,10 +132,10 @@ Seven skills installed via [skills.sh](https://skills.sh) (see Quick Start).
 |-------|-------------|
 | `ralph-kage-bunshin-start` | Dimension-based interview → SPEC.md + tasks.json (with dependency waves) + CLAUDE.md |
 | `ralph-kage-bunshin-watcher` | Central orchestrator — task assignment, worker lifecycle, architect/debugger spawning, health monitoring. Per-worker summary with task, generations, time, and token cost on completion |
-| `ralph-kage-bunshin-loop` | Worker execution loop: receive task → TDD → DoD → report result → exit. Produces skill artifacts (ui-measurements, transition-measurements) when UI tasks require them |
+| `ralph-kage-bunshin-loop` | Worker execution loop: receive task → TDD → DoD → report result → exit. Delegates to `/ui-capture` for visual regression; produces skill artifacts (ui-measurements, transition-measurements) when UI tasks require them |
 | `ralph-kage-bunshin-debug` | Root-cause diagnosis on 3+ failures — file:line evidence, ONE fix proposal, read-only |
 | `ralph-kage-bunshin-verify` | Read-only acceptance-criteria validation — PASS/FAIL/INCOMPLETE verdict, no state changes |
-| `ralph-kage-bunshin-architect` | Approval authority — spec compliance, steelman review, visual regression via `agent-browser`, reports verdict to watcher |
+| `ralph-kage-bunshin-architect` | Approval authority — spec compliance, steelman review, visual regression via `/ui-capture`, reports verdict to watcher |
 | `api-integration-checklist` | Pre-coding API integration check — CORS, auth, rate limits, proxy decision |
 
 Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`evals/trigger-eval.json`) compatible with [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md).
@@ -151,8 +156,7 @@ Each skill includes behavioral evals (`evals/evals.json`) and trigger evals (`ev
       ui-measurements.json    Skill artifact (if UI task)
       transition-measurements.json  Skill artifact (if animation task)
       visual-regression.json  Screenshot comparison verdicts
-      reference-screenshots/  Reference site screenshots
-      clone-screenshots/      Clone site screenshots
+      ui-capture/             /ui-capture skill artifacts (screenshots, videos, regions.json)
 
 CLAUDE.md             TDD rules, DoD criteria
 ```

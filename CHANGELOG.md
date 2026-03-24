@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-03-24
+
+### Changed
+- **`/ui-capture` skill integration** — Clone project analysis in `/ralph-kage-bunshin-start` and visual regression in `/ralph-kage-bunshin-loop` now delegate to `/ui-capture` instead of using `agent-browser` directly. `/ui-capture` provides structured baseline assets (full-page screenshots, scroll/hover/cursor-reactive transition videos, `regions.json`) that feed directly into task scoping and architect review.
+- **`/ralph-kage-bunshin-start`** — Clone project pre-analysis rewritten: checks `ffmpeg` dependency, invokes `/ui-capture <url>` for Phase 1 (full page capture) + Phase 2 (transition detection), serves comparison page for user confirmation, uses confirmed `regions.json` to scope tasks with specific scroll ranges and transition types.
+- **`/ralph-kage-bunshin-loop`** — Visual regression step now invokes `/ui-capture <reference-url> <localhost-url>` to generate comparison page instead of manually screenshotting reference and clone sites. Added `/ui-capture` to skill dependencies.
+- **README** — Added "Why two communication paths?" section explaining Watcher→Worker (`tmux send-keys`) vs Worker→Watcher (`fakechat`) design rationale.
+
 ## [0.2.0] - 2026-03-23
 
 ### Added
