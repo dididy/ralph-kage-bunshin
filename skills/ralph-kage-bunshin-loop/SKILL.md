@@ -182,9 +182,11 @@ For E2E: find and run the Playwright test script from package.json.
 
 **Visual regression check (hard gate for UI tasks with reference URL):**
 - Invoke `/ui-capture <reference-url> http://localhost:<port>` — captures impl, generates comparison page
-- Agent reads ref/impl images and identifies mismatches
+- Agent reads ref/impl section screenshots and identifies mismatches (layout, colors, spacing, images)
+- For each section: mark as MATCH, CLOSE, or MISMATCH with a one-line description
 - Write results to `.ralph/workers/worker-N/visual-regression.json`
-- If `overall_verdict: "fail"` → fix mismatches first
+- If any section is MISMATCH → fix before proceeding
+- **Note:** `/ui-capture` serves a compare.html page. Read section screenshots directly with the Read tool rather than relying solely on the served page — screenshot comparison is the ground truth.
 
 For each acceptance criterion: mark as VERIFIED, PARTIAL, or MISSING.
 For each E2E scenario: mark as COVERED or MISSING.

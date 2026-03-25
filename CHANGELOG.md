@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2026-03-25
+
+### Changed
+- **`/ralph-kage-bunshin-loop` evals** — 4 eval updates + 4 new evals (52 total, was 48):
+  - **Updated** loop-44/45/46: visual regression evals now test `/ui-capture` skill invocation instead of direct `agent-browser` usage, matching the v0.2.1 SKILL.md change
+  - **New** loop-49: worker applies `debug_session.proposed_fix` as first action when present in state.json
+  - **New** loop-50: worker reads `architect_review.notes` and addresses listed gaps when `status: "rejected"` found in state.json
+  - **New** loop-51: worker immediately broadcasts critical discoveries (wrong API, broken assumptions) to watcher via curl POST without waiting for convergence
+  - **New** loop-52: isolated task with no remote merges into base branch instead of pushing; logs skip reason in PROGRESS.md
+
 ## [0.2.1] - 2026-03-24
 
 ### Changed

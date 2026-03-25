@@ -67,13 +67,14 @@
   },
   {
     "eval_id": 6,
-    "eval_name": "loop-07-stagnation-triggers-debug",
+    "eval_name": "loop-07-failure-threshold-exit",
     "prompt": "[test fails for 3rd consecutive time]",
     "setup": "state.json with consecutive_failures: 2, test about to fail again",
     "assertions": [
       "Increments consecutive_failures to 3",
-      "Invokes /ralph-kage-bunshin-debug",
-      "Passes worker ID, project dir, task name, error output"
+      "Sends [FAIL] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, error summary, and consecutive_failures",
+      "Exits after sending fail report",
+      "Does NOT continue implementing or invoke /ralph-kage-bunshin-debug directly"
     ]
   },
   {
@@ -84,7 +85,8 @@
     "assertions": [
       "Detects alternating fail/pass pattern",
       "Sets pathology.oscillation to true",
-      "Locks the correct approach in CLAUDE.md"
+      "Sends [PATHOLOGY] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, type:'oscillation'",
+      "Exits after sending pathology report"
     ]
   },
   {
@@ -113,12 +115,11 @@
   },
   {
     "eval_id": 10,
-    "eval_name": "loop-11-done-report-via-fakechat",
+    "eval_name": "loop-11-done-report-via-curl",
     "prompt": "[after DoD Phase 1 passes]",
     "setup": "All DoD criteria VERIFIED",
     "assertions": [
-      "Sends [DONE] message via fakechat to watcher",
-      "Includes worker ID, task ID, generation count, and learnings",
+      "Sends [DONE] curl POST to http://127.0.0.1:8787/upload with task_id and worker_id",
       "Does NOT write converged:true to state.json or tasks.json",
       "Exits after sending [DONE]"
     ]
@@ -261,12 +262,13 @@
   },
   {
     "eval_id": 24,
-    "eval_name": "loop-25-env-gotcha-to-claudemd",
+    "eval_name": "loop-25-env-gotcha-recorded-immediately",
     "prompt": "[discovers environment gotcha]",
     "setup": "Discovers proxy config that requires restart",
     "assertions": [
-      "Appends to CLAUDE.md under '## Environment Notes' immediately",
-      "Does NOT wait until convergence"
+      "Records the discovery in PROGRESS.md under learnings: immediately",
+      "Does NOT wait until convergence to record it",
+      "Broadcasts to watcher via curl POST if it affects other workers"
     ]
   },
   {
@@ -329,7 +331,7 @@
     "setup": "Any pathology detected",
     "assertions": [
       "(1) Updates pathology in state.json",
-      "(2) Sends [PATHOLOGY] message via fakechat to watcher with pathology type and details",
+      "(2) Sends [PATHOLOGY] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, and pathology type",
       "(3) Writes PROGRESS.md with 'result: PATHOLOGY — [type]'",
       "(4) Exits"
     ]
@@ -422,12 +424,12 @@
   },
   {
     "eval_id": 39,
-    "eval_name": "loop-40-fakechat-sends-to-watcher",
+    "eval_name": "loop-40-curl-reports-to-watcher",
     "prompt": "[loop starts]",
     "setup": "Worker needs to report status to watcher",
     "assertions": [
-      "Sends [DONE]/[FAIL]/[PATHOLOGY] to watcher fakechat :8787",
-      "Uses port 8787 to reach the watcher"
+      "Sends [DONE]/[FAIL]/[PATHOLOGY] via curl POST to http://127.0.0.1:8787/upload",
+      "Uses port 8787 (not a different port) for all watcher communication"
     ]
   },
   {
@@ -468,11 +470,10 @@
     "eval_id": 43,
     "eval_name": "loop-44-visual-regression-run",
     "prompt": "[entering DoD check]",
-    "setup": "SPEC.md has ## Reference URL, UI task, agent-browser available",
+    "setup": "SPEC.md has ## Reference URL, UI task, /ui-capture skill available",
     "assertions": [
-      "Screenshots reference site sections with agent-browser",
-      "Screenshots clone site sections with agent-browser",
-      "Saves to .ralph/workers/worker-N/reference-screenshots/ and clone-screenshots/",
+      "Invokes /ui-capture <reference-url> <localhost-url>",
+      "Reads per-section verdicts from ui-capture output",
       "Writes visual-regression.json with per-section verdicts and overall_verdict",
       "Does NOT report [DONE] if overall_verdict is 'fail'"
     ]
@@ -492,11 +493,11 @@
   },
   {
     "eval_id": 45,
-    "eval_name": "loop-46-visual-regression-skip-no-agent-browser",
+    "eval_name": "loop-46-visual-regression-skip-no-ui-capture",
     "prompt": "[entering DoD check]",
-    "setup": "SPEC.md has ## Reference URL, UI task, agent-browser NOT installed (which agent-browser returns nothing)",
+    "setup": "SPEC.md has ## Reference URL, UI task, /ui-capture skill NOT installed",
     "assertions": [
-      "Documents that agent-browser is unavailable in PROGRESS.md",
+      "Documents that /ui-capture is unavailable in PROGRESS.md",
       "Does NOT fail or block [DONE] for this reason alone",
       "Sets dod_checklist.visual_regression to false with documented skip reason"
     ]
@@ -515,14 +516,61 @@
   },
   {
     "eval_id": 47,
-    "eval_name": "loop-48-fail-report-via-fakechat",
+    "eval_name": "loop-48-fail-report-via-curl",
     "prompt": "[implementation fails after max attempts]",
     "setup": "All approaches exhausted, task cannot be completed",
     "assertions": [
-      "Sends [FAIL] message via fakechat to watcher",
-      "Includes worker ID, task ID, failure reason, and attempted approaches",
+      "Sends [FAIL] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, error summary, and consecutive_failures",
       "Writes PROGRESS.md with 'result: FAIL'",
       "Exits after sending [FAIL]"
+    ]
+  },
+  {
+    "eval_id": 48,
+    "eval_name": "loop-49-applies-debug-session-fix-first",
+    "prompt": "[loop starts]",
+    "setup": "state.json has debug_session.proposed_fix with a specific file and change",
+    "assertions": [
+      "Reads debug_session.proposed_fix before writing any code",
+      "Applies the proposed fix as the FIRST action of this generation",
+      "Does NOT skip or ignore the proposed fix",
+      "Records debug fix applied in PROGRESS.md"
+    ]
+  },
+  {
+    "eval_id": 49,
+    "eval_name": "loop-50-architect-reject-reads-notes",
+    "prompt": "[loop starts]",
+    "setup": "state.json has architect_review.status: 'rejected' with notes listing 2 gaps",
+    "assertions": [
+      "Reads architect_review.notes before implementing",
+      "Addresses each gap listed in notes",
+      "Does NOT re-implement from scratch — only fixes the listed gaps",
+      "Records gaps being fixed in PROGRESS.md"
+    ]
+  },
+  {
+    "eval_id": 50,
+    "eval_name": "loop-51-broadcast-critical-discovery",
+    "prompt": "[during implementation]",
+    "setup": "Worker discovers that the API endpoint documented in SPEC.md is wrong (returns 404)",
+    "assertions": [
+      "Immediately sends [BROADCAST] curl POST to watcher at :8787",
+      "Message includes worker ID and one-line summary of the discovery",
+      "Does NOT wait until convergence to share the discovery",
+      "Records broadcast sent in PROGRESS.md under learnings:"
+    ]
+  },
+  {
+    "eval_id": 51,
+    "eval_name": "loop-52-worktree-no-remote-merge-base",
+    "prompt": "[after reporting DONE for isolated task]",
+    "setup": "Isolated task done, no git remote configured, RALPH_AUTO_PUSH=true",
+    "assertions": [
+      "Detects that no remote exists",
+      "Merges worktree branch into base branch instead of pushing",
+      "Removes worktree after merge",
+      "Logs 'merged into base branch — no remote available' in PROGRESS.md"
     ]
   }
 ]
