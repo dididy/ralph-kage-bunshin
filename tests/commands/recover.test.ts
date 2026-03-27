@@ -5,12 +5,14 @@ import * as tmux from '../../src/core/tmux'
 import * as caffeinate from '../../src/core/caffeinate'
 import * as configModule from '../../src/core/config'
 import fs from 'fs'
+import * as childProcess from 'child_process'
 
 vi.mock('../../src/core/state')
 vi.mock('../../src/core/tmux')
 vi.mock('../../src/core/caffeinate')
 vi.mock('../../src/core/config')
 vi.mock('fs')
+vi.mock('child_process')
 
 describe('ralph recover', () => {
   beforeEach(() => {
@@ -35,6 +37,7 @@ describe('ralph recover', () => {
     vi.mocked(fs.chmodSync).mockReturnValue(undefined)
     vi.mocked(fs.readdirSync).mockReturnValue([] as any)
     vi.mocked(fs.rmSync).mockReturnValue(undefined)
+    vi.mocked(childProcess.execFileSync).mockReturnValue(Buffer.from(''))
   })
 
   it('does not create a session when there are no pending tasks', () => {
@@ -187,6 +190,18 @@ describe('ralph recover', () => {
     runRecover('/tmp/project')
     const allCmds = vi.mocked(tmux.sendKeys).mock.calls.map(c => c[2])
     expect(allCmds.some(cmd => cmd.includes('source'))).toBe(true)
+  })
+
+  it('attaches to the tmux session after starting', () => {
+    vi.mocked(state.readTasks).mockReturnValue([
+      { id: 1, name: 'todo', status: 'pending', worker: null },
+    ])
+    runRecover('/tmp/project')
+    expect(childProcess.execFileSync).toHaveBeenCalledWith(
+      'tmux',
+      ['attach-session', '-t', 'ralph-project'],
+      { stdio: 'inherit' }
+    )
   })
 
   it('caps worker count at 20', () => {

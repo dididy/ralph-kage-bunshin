@@ -230,5 +230,39 @@
       "Rejection includes specific file:line references",
       "Does NOT use vague language like 'needs improvement'"
     ]
+  },
+  {
+    "eval_id": 22,
+    "eval_name": "arch-23-pathology-precheck-blocks-review",
+    "prompt": "Review worker 1's completed task",
+    "setup": "worker-1 state.json has pathology.oscillation:true — worker oscillated between passing and failing tests",
+    "assertions": [
+      "Reads state.json pathology field BEFORE any other review step",
+      "Immediately sends [REJECTED] without reading source code or tests",
+      "Rejection message references the detected pathology type (oscillation)",
+      "Does NOT steelman or check completeness — pathology is a hard gate"
+    ]
+  },
+  {
+    "eval_id": 23,
+    "eval_name": "arch-24-pathology-stagnation-blocks-review",
+    "prompt": "Review worker 3's completed task",
+    "setup": "worker-3 state.json has pathology.stagnation:true — 3+ consecutive failures before convergence claim",
+    "assertions": [
+      "Detects pathology.stagnation:true in state.json",
+      "Immediately rejects — does not proceed to review source or tests",
+      "Rejection notes that stagnation pathology requires debug investigation, not architect review"
+    ]
+  },
+  {
+    "eval_id": 24,
+    "eval_name": "arch-25-rejection-message-what-not-how",
+    "prompt": "Review worker 2's implementation",
+    "setup": "Source has missing error handling at src/api/client.ts:88 — the catch block is empty",
+    "assertions": [
+      "Rejection message states WHAT is wrong: 'Empty catch block at src/api/client.ts:88 — errors are silently swallowed'",
+      "Does NOT prescribe HOW to fix: does not say 'add console.error' or 'throw the error'",
+      "Worker can determine the fix from the description of the problem"
+    ]
   }
 ]

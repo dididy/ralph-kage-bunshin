@@ -257,5 +257,41 @@
       "Warns dev proxy is dev-only",
       "Requires production proxy solution chosen upfront"
     ]
+  },
+  {
+    "eval_id": 24,
+    "eval_name": "api-25-step0-blocking-on-404",
+    "prompt": "Run API integration checklist for this API",
+    "setup": "Step 0 endpoint verification: 2 of 3 endpoints return 200, but GET /v2/users/me returns 404 (endpoint was moved to /v2/profile)",
+    "assertions": [
+      "Stops the checklist at Step 0 — does NOT proceed to CORS, auth, or other steps",
+      "Reports the specific endpoint discrepancy: /v2/users/me returns 404, correct path may be /v2/profile",
+      "Instructs user to resolve the endpoint before continuing",
+      "Does NOT generate a SPEC.md ## External Dependencies block with unverified endpoints"
+    ]
+  },
+  {
+    "eval_id": 25,
+    "eval_name": "api-26-html-error-response-handling",
+    "prompt": "Check the error response format for this API",
+    "setup": "API returns JSON on success (200) but returns HTML (text/html, '<html>502 Bad Gateway</html>') on gateway errors",
+    "assertions": [
+      "Identifies that error responses have a different Content-Type than success responses",
+      "Warns that JSON.parse() will throw on HTML error responses",
+      "Recommends checking response.ok or response.headers.get('content-type') before parsing",
+      "Documents the dual-format behavior in ## External Dependencies"
+    ]
+  },
+  {
+    "eval_id": 26,
+    "eval_name": "api-27-no-retry-non-idempotent-mutations",
+    "prompt": "Set up retry logic for this API",
+    "setup": "API has endpoints: GET /orders (idempotent), POST /orders (creates a new order — not idempotent), PUT /orders/:id/status (idempotent)",
+    "assertions": [
+      "Identifies POST /orders as non-idempotent — retrying could create duplicate orders",
+      "Does NOT apply exponential backoff retry to POST /orders",
+      "Applies retry only to GET and PUT endpoints",
+      "Documents the distinction in ## External Dependencies: which endpoints are safe to retry"
+    ]
   }
 ]

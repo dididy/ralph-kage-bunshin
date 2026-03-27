@@ -223,5 +223,28 @@
       "Reads CLAUDE.md",
       "Applies constraints to verification"
     ]
+  },
+  {
+    "eval_id": 21,
+    "eval_name": "verify-22-visual-regression-rubber-stamp",
+    "prompt": "Verify worker 1's UI task",
+    "setup": "visual-regression.json has overall_verdict:'pass' but per-section verdicts show sections 'nav' and 'footer' as 'fail'",
+    "assertions": [
+      "Reads both overall_verdict AND per-section verdicts",
+      "Detects contradiction: overall is 'pass' but two sections are 'fail'",
+      "Marks Visual Regression as FAILED — does NOT trust overall_verdict alone",
+      "Verdict is FAIL, not PASS"
+    ]
+  },
+  {
+    "eval_id": 22,
+    "eval_name": "verify-23-no-e2e-script-non-ui-task-ok",
+    "prompt": "Verify worker 3's API task",
+    "setup": "Task is a pure API/logic task (no UI), package.json has no E2E script",
+    "assertions": [
+      "Does NOT flag missing E2E script as a gap",
+      "E2E section shows 'N/A — non-UI task'",
+      "Verdict is not downgraded to INCOMPLETE for this reason"
+    ]
   }
 ]

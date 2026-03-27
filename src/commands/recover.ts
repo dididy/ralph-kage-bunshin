@@ -1,8 +1,9 @@
 import path from 'path'
 import fs from 'fs'
+import { execFileSync } from 'child_process'
 import { readTasks, resetExpiredLeases, resetStuckTasks } from '../core/state'
 import { sessionExists, createSession, splitPane, applyLayout, listPanes, sendKeys, setPaneTitle } from '../core/tmux'
-import { cleanupStaleWorkers } from './team'
+import { cleanupStaleWorkers, prepareWorkerPanes, ensureFakechatPortInEnv } from './team'
 import { loadConfig, getFakechatPort } from '../core/config'
 import { startCaffeinate } from '../core/caffeinate'
 import { shellQuote } from '../core/shell'
@@ -48,14 +49,7 @@ export function runRecover(projectDir: string): void {
 
   const fakechatPort = getFakechatPort(config)
   const envPath = path.join(projectDir, '.ralph', '.env')
-  fs.mkdirSync(path.join(projectDir, '.ralph'), { recursive: true })
-  const envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : ''
-  if (!envContent.includes('FAKECHAT_PORT=')) {
-    fs.appendFileSync(envPath, `${envContent && !envContent.endsWith('\n') ? '\n' : ''}export FAKECHAT_PORT='${fakechatPort}'\n`)
-  }
-  if (fs.existsSync(envPath)) {
-    fs.chmodSync(envPath, 0o600)
-  }
+  ensureFakechatPortInEnv(envPath, fakechatPort)
 
   // Count how many workers we need (based on pending tasks, capped at reasonable max)
   const workerCount = Math.min(pendingTasks.length, 20)
@@ -79,18 +73,7 @@ export function runRecover(projectDir: string): void {
   // Watcher pane: last pane
   const watcherPaneIdx = panes[panes.length - 1]
 
-  // Prepare worker panes with env vars but do NOT launch Claude
-  for (let i = 0; i < workerCount; i++) {
-    const workerId = i + 1
-    const paneIdx = workerPanes[i]
-    setPaneTitle(sessionName, paneIdx, `ralph-worker-${workerId}`)
-    sendKeys(sessionName, paneIdx, `cd ${shellQuote(projectDir)}`)
-    if (fs.existsSync(envPath)) {
-      sendKeys(sessionName, paneIdx, `source ${shellQuote(envPath)}`)
-    }
-    sendKeys(sessionName, paneIdx, `export RALPH_WORKER_ID='${workerId}'`)
-    sendKeys(sessionName, paneIdx, `export RALPH_PROJECT_DIR=${shellQuote(projectDir)}`)
-  }
+  prepareWorkerPanes(sessionName, workerCount, workerPanes, projectDir)
 
   // Watcher pane — runs Claude with fakechat for orchestrating workers
   setPaneTitle(sessionName, watcherPaneIdx, 'ralph-watcher')
@@ -104,6 +87,6 @@ export function runRecover(projectDir: string): void {
   cleanupStaleWorkers(projectDir, workerCount)
 
   console.log(`\n[OK] Recovery started: ${sessionName} (${workerCount} worker panes + 1 watcher)`)
-  console.log(`\nTo watch workers:`)
-  console.log(`  tmux attach -t '${sessionName}'\n`)
+  console.log(`Attaching to session...\n`)
+  execFileSync('tmux', ['attach-session', '-t', sessionName], { stdio: 'inherit' })
 }

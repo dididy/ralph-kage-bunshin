@@ -66,7 +66,7 @@ Inside Claude Code:
 ralph team 3
 ```
 
-> `ralph team` spawns N empty worker panes + 1 watcher Claude session. The watcher assigns tasks to workers dynamically.
+> `ralph team` spawns N empty worker panes + 1 watcher Claude session, then attaches to the tmux session automatically. The watcher assigns tasks to workers dynamically.
 
 ---
 
@@ -109,8 +109,8 @@ Tasks support `depends_on` for ordering and `isolated: true` for git worktree is
 ## Commands
 
 ```
-ralph team <n>              Spawn N worker panes + watcher
-ralph recover               Reset expired leases, relaunch watcher
+ralph team <n>              Spawn N worker panes + watcher, then attach to tmux session
+ralph recover               Reset expired leases, relaunch watcher, then attach to tmux session
 ralph status                Show worker state (one-shot)
 ralph report                Per-worker summary with cost
 

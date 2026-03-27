@@ -1,5 +1,6 @@
 import path from 'path'
 import fs from 'fs'
+import { execFileSync } from 'child_process'
 import { createSession, splitPane, applyLayout, sendKeys, sessionExists, killSession, listPanes, setPaneTitle } from '../core/tmux'
 import { startCaffeinate } from '../core/caffeinate'
 import { loadConfig, getFakechatPort } from '../core/config'
@@ -33,6 +34,15 @@ export function prepareWorkerPanes(
   }
 }
 
+export function ensureFakechatPortInEnv(envPath: string, fakechatPort: string): void {
+  fs.mkdirSync(path.dirname(envPath), { recursive: true })
+  const envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : ''
+  if (!envContent.includes('FAKECHAT_PORT=')) {
+    fs.appendFileSync(envPath, `${envContent && !envContent.endsWith('\n') ? '\n' : ''}export FAKECHAT_PORT='${fakechatPort}'\n`)
+  }
+  fs.chmodSync(envPath, 0o600)
+}
+
 export function cleanupStaleWorkers(projectDir: string, activeWorkerCount: number): void {
   const workersDir = path.join(projectDir, '.ralph', 'workers')
   if (!fs.existsSync(workersDir)) return
@@ -60,13 +70,7 @@ export function runTeam(workerCount: number, projectDir: string): void {
   // Write watcher FAKECHAT_PORT to .env
   const fakechatPort = getFakechatPort(config)
   const envPath = path.join(projectDir, '.ralph', '.env')
-  fs.mkdirSync(path.join(projectDir, '.ralph'), { recursive: true })
-  const envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : ''
-  if (!envContent.includes('FAKECHAT_PORT=')) {
-    fs.appendFileSync(envPath, `${envContent && !envContent.endsWith('\n') ? '\n' : ''}export FAKECHAT_PORT='${fakechatPort}'\n`)
-  }
-  // Enforce restrictive permissions — .env may contain secrets
-  fs.chmodSync(envPath, 0o600)
+  ensureFakechatPortInEnv(envPath, fakechatPort)
 
   const sessionName = `ralph-${path.basename(projectDir).replace(/[^A-Za-z0-9_-]/g, '_')}`
 
@@ -109,6 +113,6 @@ export function runTeam(workerCount: number, projectDir: string): void {
   sendKeys(sessionName, watcherPaneIdx, `claude -n "ralph-watcher" --channels plugin:fakechat@claude-plugins-official --dangerously-skip-permissions "/ralph-kage-bunshin-watcher"`)
 
   console.log(`\n[OK] Ralph team started: ${sessionName} (${workerCount} worker panes + 1 watcher)`)
-  console.log(`\nTo watch workers:`)
-  console.log(`  tmux attach -t '${sessionName}'\n`)
+  console.log(`Attaching to session...\n`)
+  execFileSync('tmux', ['attach-session', '-t', sessionName], { stdio: 'inherit' })
 }

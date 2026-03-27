@@ -42,7 +42,9 @@ function readEnv(projectDir: string): Record<string, string> {
 function formatEnvLine(key: string, value: string): string {
   // Quote value if it contains spaces, #, or special chars
   const needsQuoting = /[\s#"'\\$`]/.test(value)
-  return needsQuoting ? `${key}="${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : `${key}=${value}`
+  return needsQuoting
+    ? `${key}="${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`')}"`
+    : `${key}=${value}`
 }
 
 function writeEnv(projectDir: string, env: Record<string, string>): void {

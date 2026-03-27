@@ -130,6 +130,18 @@ Worker shares a critical discovery (wrong API docs, env issue, etc.).
 
 Run these checks every **60 seconds** (between message handling):
 
+### Converged State Polling (fakechat fallback)
+**This is the most important check** — it catches the case where a worker's fakechat DONE message was lost or never received.
+
+For each task with `status: "in-progress"`:
+1. Read `.ralph/workers/worker-N/state.json`
+2. If `state.converged === true` AND the task is still `"in-progress"` in tasks.json → **the DONE message was lost**
+3. Treat this exactly as if you received `[DONE] {"task_id":T,"worker_id":N}`:
+   - Spawn architect review on the worker's pane
+   - Log: `[RECOVERY] Task T: detected converged state via polling — DONE message was lost`
+
+This polling-based fallback ensures the pipeline never freezes due to a dropped fakechat message.
+
 ### Lease Expiry Check
 Read `.ralph/tasks.json`. For each task with `status: "in-progress"`:
 - If `lease_expires_at` < now → the worker may be dead

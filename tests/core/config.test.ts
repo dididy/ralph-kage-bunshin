@@ -167,3 +167,51 @@ describe('getFakechatPort', () => {
     if (originalEnv) process.env.FAKECHAT_PORT = originalEnv
   })
 })
+
+describe('isValidConfig — fakechat_port validation', () => {
+  it('returns defaults when fakechat_port is not numeric', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+      notifications: { macos: true, slack_webhook: '', discord_webhook: '', fakechat_port: 'hello' },
+      caffeinate: true,
+    }))
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig()
+    expect(config.notifications.fakechat_port).toBeUndefined()
+    spy.mockRestore()
+  })
+
+  it('returns defaults when fakechat_port is 0', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+      notifications: { macos: true, slack_webhook: '', discord_webhook: '', fakechat_port: '0' },
+      caffeinate: true,
+    }))
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig()
+    expect(config.notifications.fakechat_port).toBeUndefined()
+    spy.mockRestore()
+  })
+
+  it('returns defaults when fakechat_port exceeds 65535', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+      notifications: { macos: true, slack_webhook: '', discord_webhook: '', fakechat_port: '99999' },
+      caffeinate: true,
+    }))
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const config = loadConfig()
+    expect(config.notifications.fakechat_port).toBeUndefined()
+    spy.mockRestore()
+  })
+
+  it('accepts valid port 8787', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true)
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+      notifications: { macos: true, slack_webhook: '', discord_webhook: '', fakechat_port: '8787' },
+      caffeinate: true,
+    }))
+    const config = loadConfig()
+    expect(config.notifications.fakechat_port).toBe('8787')
+  })
+})

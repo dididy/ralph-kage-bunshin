@@ -5,12 +5,14 @@ import * as state from '../../src/core/state'
 import * as caffeinate from '../../src/core/caffeinate'
 import * as configModule from '../../src/core/config'
 import fs from 'fs'
+import * as childProcess from 'child_process'
 
 vi.mock('../../src/core/tmux')
 vi.mock('../../src/core/state')
 vi.mock('../../src/core/caffeinate')
 vi.mock('../../src/core/config')
 vi.mock('fs')
+vi.mock('child_process')
 
 describe('ralph team', () => {
   beforeEach(() => {
@@ -35,6 +37,7 @@ describe('ralph team', () => {
     vi.mocked(fs.chmodSync).mockReturnValue(undefined)
     vi.mocked(fs.readdirSync).mockReturnValue([] as any)
     vi.mocked(fs.rmSync).mockReturnValue(undefined)
+    vi.mocked(childProcess.execFileSync).mockReturnValue(Buffer.from(''))
   })
 
   it('creates a tmux session', () => {
@@ -140,6 +143,15 @@ describe('ralph team', () => {
     expect(fs.chmodSync).toHaveBeenCalledWith(
       expect.stringContaining('.env'),
       0o600
+    )
+  })
+
+  it('attaches to the tmux session after starting', () => {
+    runTeam(3, '/tmp/test-project')
+    expect(childProcess.execFileSync).toHaveBeenCalledWith(
+      'tmux',
+      ['attach-session', '-t', 'ralph-test-project'],
+      { stdio: 'inherit' }
     )
   })
 

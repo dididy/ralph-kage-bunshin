@@ -177,5 +177,29 @@
       "Reconsiders diagnosis and looks for deeper root cause",
       "OR explicitly justifies why multi-file change is needed"
     ]
+  },
+  {
+    "eval_id": 17,
+    "eval_name": "debug-18-does-not-reproduce-already-tried-fix",
+    "prompt": "Diagnose worker 2's failure",
+    "setup": "PROGRESS.md learnings show: 'Tried wrapping fetchUser in try-catch at src/api.ts:30 — did not fix the issue, error still thrown'. Error is still TypeError at same location.",
+    "assertions": [
+      "Reads PROGRESS.md before forming hypothesis",
+      "Detects that try-catch at src/api.ts:30 was already tried and failed",
+      "Does NOT propose the same fix again",
+      "Looks one level deeper for a root cause that explains why try-catch didn't help"
+    ]
+  },
+  {
+    "eval_id": 18,
+    "eval_name": "debug-19-stack-trace-not-just-first-line",
+    "prompt": "Diagnose worker 3's failure",
+    "setup": "Error output: 'TypeError: Cannot read property token of undefined\\n  at getAuthHeader (src/auth/headers.ts:12)\\n  at buildRequest (src/api/client.ts:45)\\n  at fetchUser (src/api/users.ts:88)'",
+    "assertions": [
+      "Reads the full stack trace — not just the first error line",
+      "Identifies the call chain: fetchUser → buildRequest → getAuthHeader",
+      "Root cause references the origin of the undefined value (why is auth undefined at src/auth/headers.ts:12), not just where the crash occurred",
+      "evidence field in debug_session references the deepest relevant frame"
+    ]
   }
 ]

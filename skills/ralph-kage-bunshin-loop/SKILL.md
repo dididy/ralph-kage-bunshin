@@ -197,11 +197,20 @@ For each E2E scenario: mark as COVERED or MISSING.
 
 ### 7. Report completion
 
-When DoD Phase 1 passes, report to watcher and **exit**:
+When DoD Phase 1 passes, report to watcher and **exit**. Retry up to 3 times if the curl fails:
 ```bash
-curl -s -X POST -F "id=worker-N-done-$(date +%s)" \
-  -F 'text=[DONE] {"task_id":<T>,"worker_id":<N>}' \
-  http://127.0.0.1:8787/upload
+for i in 1 2 3; do
+  RESULT=$(curl -s -w "%{http_code}" -X POST -F "id=worker-N-done-$(date +%s)" \
+    -F 'text=[DONE] {"task_id":<T>,"worker_id":<N>}' \
+    http://127.0.0.1:8787/upload)
+  HTTP_CODE="${RESULT: -3}"
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "[DONE] reported to watcher (attempt $i)"
+    break
+  fi
+  echo "[WARN] DONE report attempt $i failed (HTTP $HTTP_CODE), retrying in 3s..."
+  sleep 3
+done
 ```
 
 Write final PROGRESS.md entry with `result: pass` and `next: DONE — waiting for architect review`.

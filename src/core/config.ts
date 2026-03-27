@@ -23,7 +23,11 @@ function isValidConfig(c: unknown): c is RalphConfig {
   if (typeof n.macos !== 'boolean') return false
   if (typeof n.slack_webhook !== 'string') return false
   if (typeof n.discord_webhook !== 'string') return false
-  if ('fakechat_port' in n && typeof n.fakechat_port !== 'string') return false
+  if ('fakechat_port' in n) {
+    if (typeof n.fakechat_port !== 'string') return false
+    const port = parseInt(n.fakechat_port as string, 10)
+    if (isNaN(port) || port < 1 || port > 65535) return false
+  }
   if ('stuckThresholdMs' in obj && (typeof obj.stuckThresholdMs !== 'number' || obj.stuckThresholdMs <= 0 || obj.stuckThresholdMs > 24 * 60 * 60 * 1000)) return false
   return true
 }

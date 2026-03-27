@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2026-03-27
+
+### Added
+- **Auto-attach after `ralph team` and `ralph recover`** — both commands now call `tmux attach-session` immediately after spawning the session, so the terminal hands off to tmux without requiring a manual attach step
+- **17 new behavioral evals** across 7 skills (210 → 227 total):
+  - `ralph-kage-bunshin-watcher` +3 (20→23): polling catches lost `[DONE]` messages, concurrent `[DONE]` handling, `[FAIL]` below threshold does not trigger debugger
+  - `ralph-kage-bunshin-architect` +3 (22→25): oscillation pathology blocks review with immediate REJECT, stagnation pathology blocks review, rejection message states WHAT not HOW
+  - `api-integration-checklist` +3 (24→27): Step 0 blocks on 404 before any SPEC output, HTML error response dual Content-Type detection, no retry on non-idempotent POST mutations
+  - `ralph-kage-bunshin-loop` +2 (52→54): approach_history grows per generation, avoids repeating failed debug fixes
+  - `ralph-kage-bunshin-debug` +2 (17→19): detects already-tried fix in PROGRESS.md learnings, reads full stack trace call chain
+  - `ralph-kage-bunshin-verify` +2 (21→23): overall_verdict:pass contradicted by per-section fail → FAILED, pure API task with no E2E script is not a gap
+  - `ralph-kage-bunshin-start` +2 (37→39): all tasks written with status:'pending' and worker:null, both conflicting parallel tasks get isolated:true
+
+### Fixed
+- **`secrets.ts` shell injection** — `$` and backtick characters in secret values were detected in `needsQuoting` but not escaped in output; values like `hello$PATH` would expand on `source .env`. Now escaped to `\$` and `` \` `` inside double-quoted env lines
+- **`config.ts` port validation** — `fakechat_port: "hello"` and out-of-range values (0, 99999) silently passed config validation. Now validates 1–65535 integer range
+
+### Changed
+- **`recover.ts` deduplication** — replaced ~25 lines of duplicated worker pane setup with `prepareWorkerPanes()` call (already exported from `team.ts`); replaced duplicated `.env` write logic with new `ensureFakechatPortInEnv()` helper
+
 ## [0.2.2] - 2026-03-25
 
 ### Changed

@@ -218,5 +218,41 @@
       "Spawns a debugger to diagnose",
       "Orchestrates, does not implement"
     ]
+  },
+  {
+    "eval_id": 20,
+    "eval_name": "watcher-21-converged-polling-catches-lost-done",
+    "prompt": "Health check cycle — 90 seconds have passed since task 3 was assigned",
+    "setup": "Task 3 status is still in-progress in tasks.json, worker-2 state.json has converged:true and dod_checklist all true, but no [DONE] fakechat message was received (message was lost)",
+    "assertions": [
+      "During health check, reads each in-progress worker's state.json",
+      "Detects worker-2 has converged:true with all dod_checklist items true",
+      "Treats this as equivalent to receiving [DONE] — spawns architect review on worker-2 pane",
+      "Does NOT wait indefinitely for a fakechat message that never arrives"
+    ]
+  },
+  {
+    "eval_id": 21,
+    "eval_name": "watcher-22-concurrent-done-messages",
+    "prompt": "[DONE] {\"task_id\":2,\"worker_id\":1} and [DONE] {\"task_id\":3,\"worker_id\":2} arrive simultaneously",
+    "setup": "Tasks 2 and 3 both in-progress on separate worker panes, both send [DONE] at the same time",
+    "assertions": [
+      "Handles both [DONE] messages — does NOT drop one",
+      "Spawns architect on worker-1 pane for task 2 AND on worker-2 pane for task 3",
+      "Both tasks remain in-progress until [APPROVED] is received for each",
+      "tasks.json is not corrupted by concurrent reads (watcher serializes its writes)"
+    ]
+  },
+  {
+    "eval_id": 22,
+    "eval_name": "watcher-23-fail-below-threshold-no-exit",
+    "prompt": "[FAIL] {\"task_id\":4,\"worker_id\":2,\"consecutive_failures\":2}",
+    "setup": "Task 4 in-progress, worker 2 has failed twice but not yet 3 times",
+    "assertions": [
+      "Does NOT spawn a debugger (threshold is 3+, not 2)",
+      "Does NOT reset the task to pending",
+      "Renews the lease for task 4",
+      "Waits for the worker to continue attempting"
+    ]
   }
 ]

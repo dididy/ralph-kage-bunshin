@@ -71,6 +71,26 @@ describe('secrets', () => {
       )
     })
 
+    it('escapes dollar signs to prevent shell variable expansion', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false)
+      setSecret('/proj', 'KEY', 'hello$PATH')
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('.env'),
+        expect.stringContaining('KEY="hello\\$PATH"'),
+        expect.any(Object)
+      )
+    })
+
+    it('escapes backticks to prevent command substitution', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false)
+      setSecret('/proj', 'KEY', 'val`cmd`')
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining('.env'),
+        expect.stringContaining('KEY="val\\`cmd\\`"'),
+        expect.any(Object)
+      )
+    })
+
     it('adds .ralph/.env to .gitignore if not present', () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => {
         if (typeof p === 'string' && p.includes('.gitignore')) return true

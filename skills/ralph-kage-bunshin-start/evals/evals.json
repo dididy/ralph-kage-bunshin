@@ -388,5 +388,27 @@
       "Checks for agent-browser availability",
       "Uses agent-browser for site analysis, not MCP Playwright"
     ]
+  },
+  {
+    "eval_id": 37,
+    "eval_name": "start-38-tasks-initial-status-pending",
+    "prompt": "Approved, write the files",
+    "setup": "Interview complete, plan approved, files being written",
+    "assertions": [
+      "Every task object in tasks.json has status: 'pending'",
+      "No task has status: 'in-progress', 'converged', or any other value",
+      "worker field is null (not pre-assigned) on all tasks"
+    ]
+  },
+  {
+    "eval_id": 38,
+    "eval_name": "start-39-isolated-flag-on-parallel-same-file",
+    "prompt": "Write the files",
+    "setup": "Two parallel tasks in Wave 2 both need to modify src/routes/index.ts",
+    "assertions": [
+      "Detects the shared file conflict between the two tasks",
+      "Sets isolated: true on BOTH conflicting tasks (not just one)",
+      "Does NOT leave one task as isolated: false while the other is true"
+    ]
   }
 ]

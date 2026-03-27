@@ -572,5 +572,29 @@
       "Removes worktree after merge",
       "Logs 'merged into base branch — no remote available' in PROGRESS.md"
     ]
+  },
+  {
+    "eval_id": 52,
+    "eval_name": "loop-53-approach-history-updated-each-generation",
+    "prompt": "[at start of generation 3]",
+    "setup": "state.json has approach_history from generations 1 and 2 (e.g. [{goal:'implement login form', strategy:'use controlled inputs'}, {goal:'implement login form', strategy:'use uncontrolled refs'}])",
+    "assertions": [
+      "Before implementing, checks approach_history to see what has already been tried",
+      "Does NOT choose a strategy already listed in approach_history",
+      "After this generation's attempt, appends the new goal+strategy to approach_history in state.json",
+      "approach_history grows by exactly 1 entry per generation"
+    ]
+  },
+  {
+    "eval_id": 53,
+    "eval_name": "loop-54-does-not-repeat-failed-debug-fix",
+    "prompt": "[loop starts, generation 2]",
+    "setup": "state.json has debug_session from a previous cycle: proposed_fix was 'change querySelector to getElementById at src/ui.ts:15', PROGRESS.md learnings note this fix was attempted and did not resolve the issue",
+    "assertions": [
+      "Reads PROGRESS.md learnings before implementing",
+      "Detects that the debug session's proposed_fix was already attempted and failed",
+      "Does NOT re-apply the same fix",
+      "Chooses a different approach and records it in approach_history"
+    ]
   }
 ]
