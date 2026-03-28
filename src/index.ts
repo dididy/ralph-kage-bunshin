@@ -26,7 +26,10 @@ program
       console.error('Error: worker count cannot exceed 20')
       process.exit(1)
     }
-    runTeam(workerCount, process.cwd())
+    runTeam(workerCount, process.cwd()).catch((err) => {
+      console.error(err)
+      process.exit(1)
+    })
   })
 
 program

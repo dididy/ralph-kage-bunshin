@@ -91,7 +91,7 @@ Repeat until DoD passes or failure threshold reached:
   ```bash
   curl -s -X POST -F "id=worker-N-broadcast-$(date +%s)" \
     -F "text=[BROADCAST] worker-N: [one-line summary]" \
-    http://127.0.0.1:8787/upload
+    http://127.0.0.1:${FAKECHAT_PORT}/upload
   ```
 
 ### 2. Run tests and capture output
@@ -139,7 +139,7 @@ If `consecutive_failures >= 3`:
   ```bash
   curl -s -X POST -F "id=worker-N-fail-$(date +%s)" \
     -F 'text=[FAIL] {"task_id":<T>,"worker_id":<N>,"error":"<last error summary>","consecutive_failures":<F>}' \
-    http://127.0.0.1:8787/upload
+    http://127.0.0.1:${FAKECHAT_PORT}/upload
   ```
 - The watcher will decide whether to spawn a debugger or take other action.
 
@@ -148,7 +148,7 @@ If pathology patterns detected (oscillation: last 4 results alternate fail/pass,
   ```bash
   curl -s -X POST -F "id=worker-N-pathology-$(date +%s)" \
     -F 'text=[PATHOLOGY] {"task_id":<T>,"worker_id":<N>,"type":"<type>"}' \
-    http://127.0.0.1:8787/upload
+    http://127.0.0.1:${FAKECHAT_PORT}/upload
   ```
 
 ### 5. Update PROGRESS.md
@@ -202,9 +202,9 @@ When DoD Phase 1 passes, report to watcher and **exit**. Retry up to 3 times if 
 for i in 1 2 3; do
   RESULT=$(curl -s -w "%{http_code}" -X POST -F "id=worker-N-done-$(date +%s)" \
     -F 'text=[DONE] {"task_id":<T>,"worker_id":<N>}' \
-    http://127.0.0.1:8787/upload)
+    http://127.0.0.1:${FAKECHAT_PORT}/upload)
   HTTP_CODE="${RESULT: -3}"
-  if [ "$HTTP_CODE" = "200" ]; then
+  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
     echo "[DONE] reported to watcher (attempt $i)"
     break
   fi

@@ -79,7 +79,7 @@ flowchart BT
         W2["🔨 Worker Claude 2"]
         WN["🔨 Worker Claude N"]
 
-        W["🔭 Watcher Claude\n💬 fakechat :8787"]
+        W["🔭 Watcher Claude\n💬 fakechat :$FAKECHAT_PORT"]
 
         W1 -- "sends status\n(fakechat)" --> W
         W2 -- "sends status\n(fakechat)" --> W
@@ -92,15 +92,15 @@ flowchart BT
 1. **Setup** — `/ralph-kage-bunshin-start` interviews you, then generates `SPEC.md`, `tasks.json`, `CLAUDE.md`
 2. **Spawn** — `ralph team N` opens N empty worker panes + 1 watcher Claude pane in tmux
 3. **Assign** — The watcher evaluates the dependency graph and launches Claude sessions on worker panes (`tmux send-keys`)
-4. **Work** — Each worker implements its assigned task via TDD → reports `[DONE]` to watcher (`fakechat :8787`)
-5. **Review** — Watcher spawns an architect on the same pane (`tmux send-keys`) → architect reports `[APPROVED]` or `[REJECTED]` (`fakechat :8787`)
+4. **Work** — Each worker implements its assigned task via TDD → reports `[DONE]` to watcher via fakechat
+5. **Review** — Watcher spawns an architect on the same pane (`tmux send-keys`) → architect reports `[APPROVED]` or `[REJECTED]` via fakechat
 6. **Recover** — On rejection, respawns the worker (`tmux send-keys`). On 3+ failures, spawns a debugger for root-cause diagnosis
 7. **Complete** — When all tasks are converged, watcher sends a macOS notification and prints a summary
 
 ### Why two communication paths?
 
 - **Watcher → Worker** (`tmux send-keys`): Watcher directly types commands into worker panes to spawn Claude sessions.
-- **Worker → Watcher** (`fakechat`): Workers report results asynchronously to watcher port 8787. `tmux send-keys` can't do this — typing into the watcher's stdin while it's mid-turn would corrupt its context. fakechat via **[Channels](https://code.claude.com/docs/en/channels)** lets multiple workers report simultaneously without collision.
+- **Worker → Watcher** (`fakechat`): Workers report results asynchronously to the watcher via fakechat. `tmux send-keys` can't do this — typing into the watcher's stdin while it's mid-turn would corrupt its context. fakechat via **[Channels](https://code.claude.com/docs/en/channels)** lets multiple workers report simultaneously without collision.
 
 Tasks support `depends_on` for ordering and `isolated: true` for git worktree isolation.
 

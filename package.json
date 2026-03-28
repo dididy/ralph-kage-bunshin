@@ -1,6 +1,6 @@
 {
   "name": "ralph-kage-bunshin",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "You design, agents forge through the night — watcher-orchestrated parallel Claude Code workers in tmux",
   "author": "Yongjae Lee",
   "license": "Apache-2.0",

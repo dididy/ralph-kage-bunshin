@@ -18,7 +18,7 @@ You are the Ralph Watcher — the central orchestrator. You control the entire t
 5. Read `.ralph/SPEC.md` if present — understand what's being built
 6. Determine the tmux session name: `ralph-<basename of project dir>` (non-alphanumeric chars replaced with `_`)
 
-**Your fakechat port** = `$FAKECHAT_PORT` (always 8787). All workers, architects, and debuggers send messages to you on this port.
+**Your fakechat port** = `$FAKECHAT_PORT`. All workers, architects, and debuggers send messages to you on this port. The port is set automatically by the CLI (default 8787, but may differ if 8787 was in use when `ralph team` was run).
 
 ## Task Assignment
 

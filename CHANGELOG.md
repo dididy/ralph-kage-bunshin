@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.4] - 2026-03-28
+
+### Added
+- **Automatic port selection for fakechat** — if the configured port (default `8787`) is already in use (e.g. another project running `ralph team`), a free OS-assigned port is picked automatically instead of conflicting
+
+### Changed
+- **`ralph team` duplicate session guard** — re-running `ralph team` for a project that already has an active tmux session now exits with a clear error instead of silently killing and recreating it. The error message includes the exact `tmux kill-session` and `tmux attach-session` commands for the session
+
 ## [0.2.3] - 2026-03-27
 
 ### Added

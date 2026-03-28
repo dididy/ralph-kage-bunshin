@@ -72,7 +72,7 @@
     "setup": "state.json with consecutive_failures: 2, test about to fail again",
     "assertions": [
       "Increments consecutive_failures to 3",
-      "Sends [FAIL] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, error summary, and consecutive_failures",
+      "Sends [FAIL] curl POST to http://127.0.0.1:${FAKECHAT_PORT}/upload with task_id, worker_id, error summary, and consecutive_failures",
       "Exits after sending fail report",
       "Does NOT continue implementing or invoke /ralph-kage-bunshin-debug directly"
     ]
@@ -85,7 +85,7 @@
     "assertions": [
       "Detects alternating fail/pass pattern",
       "Sets pathology.oscillation to true",
-      "Sends [PATHOLOGY] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, type:'oscillation'",
+      "Sends [PATHOLOGY] curl POST to http://127.0.0.1:${FAKECHAT_PORT}/upload with task_id, worker_id, type:'oscillation'",
       "Exits after sending pathology report"
     ]
   },
@@ -119,7 +119,7 @@
     "prompt": "[after DoD Phase 1 passes]",
     "setup": "All DoD criteria VERIFIED",
     "assertions": [
-      "Sends [DONE] curl POST to http://127.0.0.1:8787/upload with task_id and worker_id",
+      "Sends [DONE] curl POST to http://127.0.0.1:${FAKECHAT_PORT}/upload with task_id and worker_id",
       "Does NOT write converged:true to state.json or tasks.json",
       "Exits after sending [DONE]"
     ]
@@ -331,7 +331,7 @@
     "setup": "Any pathology detected",
     "assertions": [
       "(1) Updates pathology in state.json",
-      "(2) Sends [PATHOLOGY] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, and pathology type",
+      "(2) Sends [PATHOLOGY] curl POST to http://127.0.0.1:${FAKECHAT_PORT}/upload with task_id, worker_id, and pathology type",
       "(3) Writes PROGRESS.md with 'result: PATHOLOGY — [type]'",
       "(4) Exits"
     ]
@@ -428,8 +428,8 @@
     "prompt": "[loop starts]",
     "setup": "Worker needs to report status to watcher",
     "assertions": [
-      "Sends [DONE]/[FAIL]/[PATHOLOGY] via curl POST to http://127.0.0.1:8787/upload",
-      "Uses port 8787 (not a different port) for all watcher communication"
+      "Sends [DONE]/[FAIL]/[PATHOLOGY] via curl POST to http://127.0.0.1:${FAKECHAT_PORT}/upload",
+      "Uses $FAKECHAT_PORT env var for all watcher communication (not a hardcoded port)"
     ]
   },
   {
@@ -520,7 +520,7 @@
     "prompt": "[implementation fails after max attempts]",
     "setup": "All approaches exhausted, task cannot be completed",
     "assertions": [
-      "Sends [FAIL] curl POST to http://127.0.0.1:8787/upload with task_id, worker_id, error summary, and consecutive_failures",
+      "Sends [FAIL] curl POST to http://127.0.0.1:${FAKECHAT_PORT}/upload with task_id, worker_id, error summary, and consecutive_failures",
       "Writes PROGRESS.md with 'result: FAIL'",
       "Exits after sending [FAIL]"
     ]
@@ -555,7 +555,7 @@
     "prompt": "[during implementation]",
     "setup": "Worker discovers that the API endpoint documented in SPEC.md is wrong (returns 404)",
     "assertions": [
-      "Immediately sends [BROADCAST] curl POST to watcher at :8787",
+      "Immediately sends [BROADCAST] curl POST to watcher at $FAKECHAT_PORT",
       "Message includes worker ID and one-line summary of the discovery",
       "Does NOT wait until convergence to share the discovery",
       "Records broadcast sent in PROGRESS.md under learnings:"

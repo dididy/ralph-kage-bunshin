@@ -97,7 +97,7 @@ Report to watcher via fakechat and **exit** (watcher handles all state updates):
 ```bash
 curl -s -X POST -F "id=architect-approved-$(date +%s)" \
   -F 'text=[APPROVED] {"task_id":<T>,"notes":"<brief reason>"}' \
-  http://127.0.0.1:8787/upload
+  http://127.0.0.1:${FAKECHAT_PORT}/upload
 ```
 
 ### REJECTED
@@ -106,7 +106,7 @@ Report to watcher via fakechat and **exit** (watcher handles all state updates):
 ```bash
 curl -s -X POST -F "id=architect-rejected-$(date +%s)" \
   -F 'text=[REJECTED] {"task_id":<T>,"reasons":["<gap1>","<gap2>"]}' \
-  http://127.0.0.1:8787/upload
+  http://127.0.0.1:${FAKECHAT_PORT}/upload
 ```
 
 ## Rules

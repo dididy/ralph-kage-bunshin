@@ -8,7 +8,7 @@
       "name": "ralph-kage-bunshin",
       "source": "./",
       "description": "You design, agents forge through the night — 7 skills for watcher-orchestrated parallel Claude Code workers: central orchestrator assigns tasks, workers implement via TDD, architect reviews code, debugger diagnoses failures, all autonomously in tmux.",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "author": {
         "name": "Yongjae Lee"
       },

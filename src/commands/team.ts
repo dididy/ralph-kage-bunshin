@@ -1,10 +1,43 @@
 import path from 'path'
 import fs from 'fs'
+import net from 'net'
 import { execFileSync } from 'child_process'
-import { createSession, splitPane, applyLayout, sendKeys, sessionExists, killSession, listPanes, setPaneTitle } from '../core/tmux'
+import { createSession, splitPane, applyLayout, sendKeys, sessionExists, listPanes, setPaneTitle } from '../core/tmux'
 import { startCaffeinate } from '../core/caffeinate'
 import { loadConfig, getFakechatPort } from '../core/config'
 import { shellQuote } from '../core/shell'
+
+function isPortInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+    server.once('error', () => resolve(true))
+    server.once('listening', () => server.close(() => resolve(false)))
+    server.listen(port, '127.0.0.1')
+  })
+}
+
+function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer()
+    server.once('error', reject)
+    server.once('listening', () => {
+      const addr = server.address()
+      const port = typeof addr === 'object' && addr ? addr.port : 0
+      server.close(() => resolve(port))
+    })
+    server.listen(0, '127.0.0.1')
+  })
+}
+
+export async function resolvePort(preferred: string): Promise<string> {
+  const preferredNum = parseInt(preferred, 10)
+  if (await isPortInUse(preferredNum)) {
+    const free = await getFreePort()
+    console.log(`[INFO] Port ${preferredNum} is in use, using port ${free} instead`)
+    return String(free)
+  }
+  return preferred
+}
 
 /**
  * Prepare worker panes with environment variables but do NOT launch Claude.
@@ -60,24 +93,28 @@ export function cleanupStaleWorkers(projectDir: string, activeWorkerCount: numbe
   }
 }
 
-export function runTeam(workerCount: number, projectDir: string): void {
+export async function runTeam(workerCount: number, projectDir: string): Promise<void> {
   const config = loadConfig()
 
   if (config.caffeinate) {
     startCaffeinate()
   }
 
-  // Write watcher FAKECHAT_PORT to .env
-  const fakechatPort = getFakechatPort(config)
-  const envPath = path.join(projectDir, '.ralph', '.env')
-  ensureFakechatPortInEnv(envPath, fakechatPort)
-
   const sessionName = `ralph-${path.basename(projectDir).replace(/[^A-Za-z0-9_-]/g, '_')}`
 
-  // Kill old session BEFORE cleaning up worker dirs — prevents workers from writing to dirs being deleted
+  // Same project already running — warn and exit
   if (sessionExists(sessionName)) {
-    killSession(sessionName)
+    console.error(`[ERROR] Ralph is already running for this project (session: ${sessionName})`)
+    console.error(`  To stop it, run: tmux kill-session -t ${sessionName}`)
+    console.error(`  Or attach to it: tmux attach-session -t ${sessionName}`)
+    process.exit(1)
   }
+
+  // Resolve fakechat port — use preferred if free, otherwise pick a random free port
+  const preferredPort = getFakechatPort(config)
+  const fakechatPort = await resolvePort(preferredPort)
+  const envPath = path.join(projectDir, '.ralph', '.env')
+  ensureFakechatPortInEnv(envPath, fakechatPort)
 
   // Clean up stale worker directories from previous runs with more workers
   cleanupStaleWorkers(projectDir, workerCount)

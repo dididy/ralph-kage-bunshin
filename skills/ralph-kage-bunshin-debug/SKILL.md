@@ -85,7 +85,7 @@ Then report to the watcher via fakechat and **exit**:
 ```bash
 curl -s -X POST -F "id=debugger-diagnosis-$(date +%s)" \
   -F 'text=[DIAGNOSIS] {"task_id":<T>,"root_cause":"<one sentence>","proposed_fix":"<what to change>","confidence":"<high/medium/low>"}' \
-  http://127.0.0.1:8787/upload
+  http://127.0.0.1:${FAKECHAT_PORT}/upload
 ```
 
 The watcher will forward the diagnosis to the worker and respawn it.
